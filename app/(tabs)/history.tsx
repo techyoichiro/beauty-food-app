@@ -10,9 +10,77 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, TrendingUp, ChartBar as BarChart3, Crown } from 'lucide-react-native';
-import { LineChart } from 'react-native-svg';
+
+import { router } from 'expo-router';
+import { FoodAnalysisResult } from '../../lib/food-analysis';
 
 const { width } = Dimensions.get('window');
+
+// ダミーの解析結果データ
+const createDummyAnalysisResult = (score: number): FoodAnalysisResult => ({
+  detected_foods: [
+    {
+      name: score >= 85 ? "鮭の塩焼き" : score >= 75 ? "チキンサラダ" : "ハンバーガー",
+      category: "protein",
+      estimated_amount: "100g",
+      confidence: 0.92
+    },
+    {
+      name: score >= 85 ? "キノコとブロッコリーの炒め物" : score >= 75 ? "アボカドサラダ" : "フライドポテト",
+      category: "vegetable",
+      estimated_amount: "80g",
+      confidence: 0.88
+    },
+    {
+      name: "玄米",
+      category: "carb",
+      estimated_amount: "150g",
+      confidence: 0.85
+    }
+  ],
+     nutrition_analysis: {
+     calories: score >= 85 ? 420 : score >= 75 ? 380 : 650,
+     protein: score >= 85 ? 28 : score >= 75 ? 25 : 22,
+     carbohydrates: score >= 85 ? 45 : score >= 75 ? 42 : 58,
+     fat: score >= 85 ? 12 : score >= 75 ? 15 : 35,
+     fiber: score >= 85 ? 8 : score >= 75 ? 6 : 3,
+     vitamins: {
+       vitamin_c: score >= 85 ? 80 : score >= 75 ? 60 : 40,
+       vitamin_e: score >= 85 ? 70 : score >= 75 ? 50 : 30,
+       vitamin_a: score >= 85 ? 75 : score >= 75 ? 55 : 35,
+       vitamin_b_complex: score >= 85 ? 85 : score >= 75 ? 65 : 45
+     },
+     minerals: {
+       iron: score >= 85 ? 15 : score >= 75 ? 12 : 8,
+       zinc: score >= 85 ? 10 : score >= 75 ? 8 : 5,
+       calcium: score >= 85 ? 120 : score >= 75 ? 100 : 80,
+       magnesium: score >= 85 ? 90 : score >= 75 ? 70 : 50
+     }
+   },
+  beauty_score: {
+    overall: score,
+    skin_care: score >= 85 ? 88 : score >= 75 ? 75 : 60,
+    anti_aging: score >= 85 ? 82 : score >= 75 ? 72 : 55,
+    detox: score >= 85 ? 85 : score >= 75 ? 70 : 50,
+    circulation: score >= 85 ? 80 : score >= 75 ? 68 : 45,
+    hair_nails: score >= 85 ? 78 : score >= 75 ? 65 : 50
+  },
+  immediate_advice: score >= 85 
+    ? "理想的なバランスの食事です。この調子で続けましょう。" 
+    : score >= 75 
+    ? "良いバランスですが、もう少し野菜を増やすとさらに良くなります。"
+    : "タンパク質と野菜を増やし、揚げ物を控えめにしましょう。",
+  next_meal_advice: score >= 85
+    ? "次の食事でも同様に、タンパク質・野菜・炭水化物のバランスを意識してください。"
+    : score >= 75
+    ? "次の食事では、色とりどりの野菜を多めに摂取することを心がけましょう。"
+    : "次の食事では、蒸し料理や焼き料理を選び、野菜を中心とした献立にしましょう。",
+  beauty_benefits: score >= 85
+    ? ["肌のハリと弾力向上", "抗酸化作用による老化防止", "血行促進効果"]
+    : score >= 75
+    ? ["肌の保湿力向上", "デトックス効果"]
+    : ["基本的な栄養補給"]
+});
 
 const historyData = [
   {
@@ -24,7 +92,8 @@ const historyData = [
         time: '8:30',
         image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=300',
         score: 85,
-        advice: '野菜の摂取量が理想的です'
+        advice: '野菜の摂取量が理想的です',
+        analysisResult: createDummyAnalysisResult(85)
       },
       {
         id: 2,
@@ -32,7 +101,8 @@ const historyData = [
         time: '12:45',
         image: 'https://images.pexels.com/photos/1640773/pexels-photo-1640773.jpeg?auto=compress&cs=tinysrgb&w=300',
         score: 72,
-        advice: 'タンパク質をもう少し追加しましょう'
+        advice: 'タンパク質をもう少し追加しましょう',
+        analysisResult: createDummyAnalysisResult(72)
       },
       {
         id: 3,
@@ -40,7 +110,8 @@ const historyData = [
         time: '19:15',
         image: 'https://images.pexels.com/photos/1640772/pexels-photo-1640772.jpeg?auto=compress&cs=tinysrgb&w=300',
         score: 90,
-        advice: 'バランスの取れた理想的な食事です'
+        advice: 'バランスの取れた理想的な食事です',
+        analysisResult: createDummyAnalysisResult(90)
       },
     ],
     averageScore: 82,
@@ -54,7 +125,8 @@ const historyData = [
         time: '9:00',
         image: 'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&w=300',
         score: 78,
-        advice: 'フルーツを追加すると更に良いでしょう'
+        advice: 'フルーツを追加すると更に良いでしょう',
+        analysisResult: createDummyAnalysisResult(78)
       },
       {
         id: 5,
@@ -62,7 +134,8 @@ const historyData = [
         time: '13:20',
         image: 'https://images.pexels.com/photos/1640775/pexels-photo-1640775.jpeg?auto=compress&cs=tinysrgb&w=300',
         score: 68,
-        advice: '野菜を増やしましょう'
+        advice: '野菜を増やしましょう',
+        analysisResult: createDummyAnalysisResult(68)
       },
     ],
     averageScore: 73,
@@ -104,8 +177,25 @@ export default function HistoryScreen() {
     );
   };
 
+  const handleMealCardPress = (meal: any) => {
+    // 解析結果データをJSONStringifyして画面に渡す
+    const analysisDataString = JSON.stringify(meal.analysisResult);
+    router.push({
+      pathname: '/analysis-result',
+      params: {
+        mealRecordId: `history_${meal.id}`,
+        analysisData: analysisDataString,
+        imageUri: meal.image
+      }
+    } as any);
+  };
+
   const renderMealCard = (meal: any) => (
-    <TouchableOpacity key={meal.id} style={styles.mealCard}>
+    <TouchableOpacity 
+      key={meal.id} 
+      style={styles.mealCard}
+      onPress={() => handleMealCardPress(meal)}
+    >
       <Image source={{ uri: meal.image }} style={styles.mealImage} />
       <View style={styles.mealInfo}>
         <View style={styles.mealHeader}>

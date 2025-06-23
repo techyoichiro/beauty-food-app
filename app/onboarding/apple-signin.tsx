@@ -41,6 +41,8 @@ export default function AppleSignInScreen() {
     }
   };
 
+
+
   const handleSkip = async () => {
     try {
       await completeOnboarding();
@@ -124,6 +126,8 @@ export default function AppleSignInScreen() {
                 </>
               )}
             </TouchableOpacity>
+
+
 
             {/* スキップボタン */}
             <TouchableOpacity
@@ -319,4 +323,5 @@ const styles = StyleSheet.create({
     color: '#FF6B9D',
     textDecorationLine: 'underline',
   },
+
 }); 

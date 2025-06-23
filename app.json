@@ -10,7 +10,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.bolt-expo-nativewind"
+      "bundleIdentifier": "com.anonymous.bolt-expo-nativewind",
+      "infoPlist": {
+        "NSCameraUsageDescription": "このアプリは料理の写真を撮影するためにカメラを使用します。",
+        "NSPhotoLibraryUsageDescription": "このアプリは料理の写真を選択するためにフォトライブラリにアクセスします。",
+        "NSMicrophoneUsageDescription": "このアプリはビデオ撮影時にマイクを使用することがあります。"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -20,7 +25,9 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-camera",
+      "expo-image-picker"
     ],
     "experiments": {
       "typedRoutes": true

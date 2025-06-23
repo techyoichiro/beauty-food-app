@@ -41,12 +41,16 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       {!session && (
-        <TouchableOpacity 
-          style={styles.signInButton}
-          onPress={() => router.push('/onboarding/apple-signin' as any)}
-        >
-          <Text style={styles.signInButtonText}>Apple IDでサインイン</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity 
+            style={styles.signInButton}
+            onPress={() => router.push('/onboarding/apple-signin' as any)}
+          >
+            <Text style={styles.signInButtonText}>Apple IDでサインイン</Text>
+          </TouchableOpacity>
+          
+
+        </>
       )}
     </View>
   );
@@ -109,4 +113,5 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansJP-Medium',
     color: '#FF6B9D',
   },
+
 });

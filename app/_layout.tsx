@@ -50,6 +50,7 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding/beauty-categories" />
         <Stack.Screen name="onboarding/beauty-level" />
         <Stack.Screen name="onboarding/apple-signin" />
+        <Stack.Screen name="analysis-result" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

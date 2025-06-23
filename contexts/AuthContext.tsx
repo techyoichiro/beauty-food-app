@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabase from '@/lib/supabase';
 
@@ -62,6 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
   };
+
+
 
   const signOut = async () => {
     try {
