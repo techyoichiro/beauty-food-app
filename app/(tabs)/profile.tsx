@@ -10,9 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Sparkles, Target } from 'lucide-react-native';
+import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Sparkles, Target } from 'lucide-react-native';
 import PremiumModal from '@/components/PremiumModal';
-import EditNameModal from '@/components/EditNameModal';
 
 const beautyCategories = [
   { id: 'skin', label: '美肌', selected: true },
@@ -32,9 +31,9 @@ export default function ProfileScreen() {
   const [isNotificationEnabled, setIsNotificationEnabled] = useState(true);
   const [selectedBeautyLevel, setSelectedBeautyLevel] = useState('intermediate');
   const [selectedCategories, setSelectedCategories] = useState(beautyCategories);
-  const [userName, setUserName] = useState('田中 美花');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [showEditNameModal, setShowEditNameModal] = useState(false);
+  const [weeklyGoalScore, setWeeklyGoalScore] = useState(80);
+  const [dailyMealCount, setDailyMealCount] = useState(3);
   const isFreePlan = true;
 
   const toggleCategory = (categoryId: string) => {
@@ -64,31 +63,61 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleNameSave = (newName: string) => {
-    setUserName(newName);
-    Alert.alert('完了', '名前を更新しました。');
+  const handleGoalEdit = (type: 'score' | 'meals') => {
+    if (type === 'score') {
+      Alert.prompt(
+        '週間目標スコア設定',
+        '目標とする週間平均スコアを入力してください（60-100点）',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          {
+            text: '設定',
+            onPress: (value) => {
+              const score = parseInt(value || '80');
+              if (score >= 60 && score <= 100) {
+                setWeeklyGoalScore(score);
+                Alert.alert('完了', `週間目標スコアを${score}点に設定しました。`);
+              } else {
+                Alert.alert('エラー', '60点から100点の間で入力してください。');
+              }
+            }
+          }
+        ],
+        'plain-text',
+        weeklyGoalScore.toString()
+      );
+    } else {
+      Alert.alert(
+        '1日の食事回数設定',
+        '1日の目標食事回数を選択してください',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: '2回', onPress: () => {
+            setDailyMealCount(2);
+            Alert.alert('完了', '1日の食事回数を2回に設定しました。');
+          }},
+          { text: '3回', onPress: () => {
+            setDailyMealCount(3);
+            Alert.alert('完了', '1日の食事回数を3回に設定しました。');
+          }},
+          { text: '4回', onPress: () => {
+            setDailyMealCount(4);
+            Alert.alert('完了', '1日の食事回数を4回に設定しました。');
+          }},
+        ]
+      );
+    }
   };
+
+
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.profileInfo}>
-            <View style={styles.avatar}>
-              <User size={32} color="#ec4899" />
-            </View>
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{userName}</Text>
-              <Text style={styles.userEmail}>mika.tanaka@example.com</Text>
-            </View>
-          </View>
-          <TouchableOpacity 
-            style={styles.editButton}
-            onPress={() => setShowEditNameModal(true)}
-          >
-            <Text style={styles.editButtonText}>編集</Text>
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>美容プロフィール</Text>
+          <Text style={styles.headerSubtitle}>あなたの美容目標と設定を管理</Text>
         </View>
 
         {/* Plan Status */}
@@ -118,6 +147,77 @@ export default function ProfileScreen() {
             <Text style={styles.premiumDate}>次回更新: 2024/02/15</Text>
           </View>
         )}
+
+        {/* Beauty Stats - Premium Only */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Sparkles size={20} color="#ec4899" />
+            <Text style={styles.sectionTitle}>美容統計</Text>
+            {isFreePlan && <Crown size={16} color="#f59e0b" />}
+          </View>
+          
+          {isFreePlan ? (
+            <TouchableOpacity 
+              style={styles.premiumFeature}
+              onPress={() => setShowPremiumModal(true)}
+            >
+              <Text style={styles.premiumFeatureText}>
+                プレミアムプランで詳細な美容統計を確認
+              </Text>
+              <Text style={styles.premiumFeatureSubtext}>
+                • 月間平均スコア推移{'\n'}
+                • 美容カテゴリー別分析{'\n'}
+                • 目標達成率
+              </Text>
+              <ChevronRight size={16} color="#6b7280" />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.statsGrid}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>82</Text>
+                <Text style={styles.statLabel}>今月平均スコア</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>75%</Text>
+                <Text style={styles.statLabel}>目標達成率</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>美肌</Text>
+                <Text style={styles.statLabel}>最高カテゴリー</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Beauty Goals */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Target size={20} color="#ec4899" />
+            <Text style={styles.sectionTitle}>美容目標</Text>
+          </View>
+          <View style={styles.goalContainer}>
+            <TouchableOpacity 
+              style={styles.goalItem}
+              onPress={() => handleGoalEdit('score')}
+            >
+              <Text style={styles.goalLabel}>週間目標スコア</Text>
+              <View style={styles.goalValueContainer}>
+                <Text style={styles.goalValue}>{weeklyGoalScore}点以上</Text>
+                <ChevronRight size={16} color="#999" />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.goalItem}
+              onPress={() => handleGoalEdit('meals')}
+            >
+              <Text style={styles.goalLabel}>1日の食事回数</Text>
+              <View style={styles.goalValueContainer}>
+                <Text style={styles.goalValue}>{dailyMealCount}回</Text>
+                <ChevronRight size={16} color="#999" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Beauty Categories */}
         <View style={styles.section}>
@@ -227,12 +327,7 @@ export default function ProfileScreen() {
         onSubscribe={handleSubscribe}
       />
 
-      <EditNameModal
-        visible={showEditNameModal}
-        currentName={userName}
-        onClose={() => setShowEditNameModal(false)}
-        onSave={handleNameSave}
-      />
+
     </SafeAreaView>
   );
 }
@@ -243,11 +338,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontFamily: 'NotoSansJP-Bold',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
   },
   profileInfo: {
     flexDirection: 'row',
@@ -470,5 +574,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'NotoSansJP-Regular',
     color: '#9ca3af',
+  },
+  premiumFeature: {
+    backgroundColor: '#fef7ff',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f3e8ff',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  premiumFeatureText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#1f2937',
+    marginBottom: 8,
+    flex: 1,
+  },
+  premiumFeatureSubtext: {
+    fontSize: 12,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+    lineHeight: 18,
+    flex: 1,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 20,
+    fontFamily: 'NotoSansJP-Bold',
+    color: '#ec4899',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  goalContainer: {
+    gap: 12,
+  },
+  goalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  goalLabel: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+  },
+  goalValue: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#1f2937',
+  },
+  goalValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });

@@ -1,0 +1,207 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Cursor 開発ルール（Expo / React Native / Supabase）
+
+> **目的** : 本ドキュメントは、AI コーディングアシスタント *Cursor* を利用しながら、チーム全員が一貫したコードと開発体験を得るためのルールセットです。**ESLint / Prettier / CI** により機械的に強制されることを前提に策定しています。
+
+---
+
+## 0. ツールチェーン一覧
+
+| 項目            | 採用ツール                                                  | 備考                                          |
+| ------------- | ------------------------------------------------------ | ------------------------------------------- |
+| パッケージマネージャ    | **pnpm**                                               | `pnpm-workspace.yaml` 管理。                   |
+| バンドル          | **Expo SDK 50 (Managed)**                              | iOS / Android。OTA は expo-updates。           |
+| 型チェック         | TypeScript 5 (strict)                                  | `tsconfig.base.json` をモノレポ基盤に適用。            |
+| Lint          | **ESLint** (`expo`,`@typescript-eslint`,`tailwindcss`) | [`.eslintrc.js`](#eslint-設定) 参照。            |
+| フォーマット        | **Prettier** 3                                         | ESLint との競合ルールは `.prettier.config.js` で上書き。 |
+| Git Hooks     | **Husky** + lint‑staged                                | コミット前に `lint` & `test`。                     |
+| CI/CD         | **GitHub Actions** + EAS Build / Update                | PRごとにプレビュー IPA を自動生成。                       |
+| Error Monitor | **Sentry** + expo-error-reporter                       | DSN は `expo-constants` から注入。                |
+| E2E テスト       | **Detox** (Expo config plugin)                         | iOS シミュレータと Android エミュレータ。                 |
+| 単体 / IT       | **Jest** + React Native Testing Library                | カバレッジ閾値 `lines >= 60%`。                     |
+| 型安全 API       | **Zod**                                                | fetch → parse。                              |
+| 状態管理          | React Context + useReducer / Zustand                   | グローバル UI (toast, modal) は `uiStore`。        |
+| データ fetch     | **React Query**                                        | キャッシュ & リトライポリシ。                            |
+| Auth / DB     | **Supabase Cloud** (Pro 推奨)                            | Edge Functions (Deno) で AI Proxy。           |
+
+---
+
+## 1. ディレクトリ & ファイル命名
+
+| レイヤ           | 規約                 | 例                         |
+| ------------- | ------------------ | ------------------------- |
+| ディレクトリ        | **kebab‑case**     | `components/auth-wizard/` |
+| React コンポーネント | **PascalCase.tsx** | `UserCard.tsx`            |
+| hooks         | **useXxx.ts**      | `useAuth.ts`              |
+| 型定義           | `*.types.ts`       | `user.types.ts`           |
+| Edge Function | `fn-name/index.ts` | `analyze-photo/index.ts`  |
+
+> **ルートエイリアス**は `@/` を使用し、`tsconfig.paths` で定義。
+
+---
+
+## 2. コードスタイル & 構造
+
+* **関数型 / 宣言的**を徹底。Class Component 禁止。
+* 1 ファイル構成順: *exported component* → *sub‑components* → *hooks / helpers* → *static* → *types*。
+* **Named export** 推奨。デフォルトエクスポートは *API client や config* のみ許可。
+* **interfaces > type alias**：ただし *ユーティリティ型*・*Mapped type* は `type` を許可。
+* **enum 禁止** → 代わりに as‑const map。
+* 早期 return・if‑return パターンでネストを浅く。
+
+### ESLint 設定 (抜粋)
+
+```js
+module.exports = {
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:react/recommended',
+    'plugin:react-hooks/recommended',
+    'plugin:react-native/all',
+    'plugin:tailwindcss/recommended',
+    'prettier',
+  ],
+  rules: {
+    'react-native/no-inline-styles': 'error',
+    '@typescript-eslint/consistent-type-imports': 'error',
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector: 'TSEnumDeclaration',
+        message: 'Use union literals or mapped object instead of enum',
+      },
+    ],
+  },
+};
+```
+
+---
+
+## 3. UI / Styling
+
+| 項目        | 指針                                                                                            |
+| --------- | --------------------------------------------------------------------------------------------- |
+| コンポーネント   | Expo Core + NativeWind または styled‑components。                                                 |
+| レイアウト     | Flexbox / `useWindowDimensions`。                                                              |
+| ダークモード    | `useColorScheme` + Design Tokens (`theme.ts`).                                                |
+| アニメーション   | `react-native-reanimated` v3 / `GestureHandler`.                                              |
+| Safe Area | `SafeAreaProvider` (アプリルート) + `SafeAreaView` / `SafeAreaScrollView` + `KeyboardAvoidingView`. |
+| アクセシビリティ  | `accessibilityRole`, `aria-` props。テスト matcher で検証。                                           |
+| 画像        | `expo-image` + WebP, max 1024 px, ≦200 KB, lazy load。                                         |
+
+---
+
+## 4. パフォーマンス
+
+* `useState` / `useEffect` 濫用禁止 → Context + Reducer or React Query.
+* 再レンダ抑制: `React.memo`, `useMemo`, `useCallback`。
+* **コード分割**: `React.lazy` / `expo-router` layouts。
+* 初回起動: `SplashScreen.preventAutoHideAsync()` → ready 後に表示。
+* **閾値**: Time‑to‑interactive < 2.5 s、JS bundle < 1 MB。
+
+---
+
+## 5. ナビゲーション
+
+* **react-navigation** (stack / tab / drawer) + `expo-router` 動的ルート。
+* Deep Link: `prefixes`, `screens` を `app.json` に設定。
+
+---
+
+## 6. 状態管理
+
+1. **React Context + useReducer** … 認証、設定、テーマ。
+2. **React Query** … リモートデータ & キャッシュ。
+3. **Zustand** … 非同期を含む UIグローバル (toast, modal)。
+
+---
+
+## 7. エラーハンドリング & Validation
+
+* **Zod** `schema.parse()` → 失敗時は early return。
+* `ErrorBoundary` で UI 崩壊を防ぐ。
+* `Sentry.captureException` を必ず添付 (`expo-error-reporter`).
+
+---
+
+## 8. セキュリティ
+
+| 項目        | ルール                                                                           |
+| --------- | ----------------------------------------------------------------------------- |
+| セキュアストレージ | `expo-secure-store` (キー共有不要) / `react-native-encrypted-storage` (要共有) を用途で選択。 |
+| 通信        | 必ず HTTPS。Dev client 時は `.env.dev` の API\_BASE\_URL でローカルを分離。                  |
+| API キー    | `eas secret` / `expo-constants` で注入。git ignore。                               |
+| XSS       | 画像 URL・HTML 入力は sanitize して表示。                                                |
+
+---
+
+## 9. テスト & CI
+
+| レイヤ         | ツール                                         | 基準                 |
+| ----------- | ------------------------------------------- | ------------------ |
+| Unit        | Jest + RNTL                                 | カバレッジ lines ≥ 60 % |
+| Snapshot    | Jest (styled‑components)                    | デザインシステムのみ         |
+| Integration | Detox                                       | ゴールデンパス成功率 ≥ 90 %  |
+| OTA 署名      | `expo-cli` `expo-updates` — update 時に自動 E2E |                    |
+
+CI ステップ (`.github/workflows/ci.yml`): `pnpm lint` → `pnpm typecheck` → `pnpm test` → **EAS build –‑platform ios --profile preview**。
+
+---
+
+## 10. 配信 & OTA
+
+* **EAS Build**: `eas build --platform ios --profile production`。
+* **EAS Update**: `eas update --branch production` … JS/Asset のみ。
+* Native Module 追加時はバージョン更新しストア再申請。
+
+---
+
+## 11. 国際化 (i18n)
+
+* `expo-localization` + `react-i18next` namespaces。
+* RTL & text‑scaling を `I18nManager` でテスト。
+
+---
+
+## 12. アナリティクス
+
+* `expo-firebase-analytics` を初期セット。
+* GDPR 取得: 初回起動で opt‑in モーダル。
+
+---
+
+## 13. ドキュメント & Onboarding
+
+* このファイル `cursor_rules.md` をリポジトリ root に配置し、`README` にリンク。
+* 新規メンバーは `pnpm setup` スクリプトで即環境構築。
+
+---
+
+## 14. 運用ポリシ
+
+* Supabase **Pro プラン※** へ移行する基準: DB 500 MB or 50 k MAU or Storage 1 GB 超過。
+* Edge Function 実行時間上限 150 s を超えるバッチは Cloudflare Workers へ。
+* プロジェクト無操作 1 週で Sleep する無料枠回避: `cron` ping.
+
+---
+
+### FAQ
+
+> **Q. interfaces しかダメ?**
+> → Props / DTO は `interface`; Utility 型や Union は `type` 許可。
+>
+> **Q. OTA 後の Detox 再テストは?**
+> → `eas update` 発火後に GitHub Action で `detox test --configuration ios.release` を実行。
+
+---
+
+## 最終チェックリスト
+
+*
+
+> **これらを CI で強制し、Cursor が提案するコードも自動的にルール準拠となるようにします。**
