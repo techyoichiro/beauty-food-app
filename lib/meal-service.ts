@@ -359,7 +359,7 @@ export const UserProfileService = {
     await this.saveProfile({ beautyCategories: categories });
   },
 
-  // 美意識レベル更新
+  // 美容スタイル更新
   async updateBeautyLevel(level: 'beginner' | 'intermediate' | 'advanced'): Promise<void> {
     await this.saveProfile({ beautyLevel: level });
   },
@@ -496,7 +496,7 @@ export const BEAUTY_CATEGORIES = [
   { id: 'hair_nails', name: '髪・爪の健康', icon: '💇‍♀️', description: 'ケラチン生成・毛髪成長' },
 ];
 
-// 美意識レベルの定義
+// 美容スタイルの定義
 export const BEAUTY_LEVELS = [
   { 
     id: 'beginner', 

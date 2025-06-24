@@ -47,7 +47,7 @@ const BEAUTY_CATEGORY_DETAILS = {
   }
 };
 
-// 美意識レベル別の説明深度
+// 美容スタイル別の説明深度
 const BEAUTY_LEVEL_STYLES = {
   beginner: {
     name: '初心者',

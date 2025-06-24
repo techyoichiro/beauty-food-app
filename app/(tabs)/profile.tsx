@@ -67,7 +67,7 @@ export default function ProfileScreen() {
       if (userProfile) {
         setUserProfile({ ...userProfile, beautyLevel: level });
       }
-      Alert.alert('完了', '美意識レベルを更新しました');
+      Alert.alert('完了', '美容スタイルを更新しました');
     } catch (error) {
       Alert.alert('エラー', '設定の保存に失敗しました');
     }
@@ -329,7 +329,7 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Target size={20} color="#ec4899" />
-            <Text style={styles.sectionTitle}>美意識レベル</Text>
+                            <Text style={styles.sectionTitle}>美容スタイル</Text>
           </View>
           {beautyLevels.map((level) => (
             <TouchableOpacity
