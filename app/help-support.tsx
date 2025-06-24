@@ -7,23 +7,27 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Linking,
+  Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { 
   ArrowLeft, 
   HelpCircle, 
   MessageCircle, 
-  Mail, 
-  Phone, 
   FileText, 
   ChevronRight,
   Send,
   Book,
   AlertCircle,
-  Star
+  Star,
+  X,
+  User,
+  AtSign
 } from 'lucide-react-native';
+import { sendContactFormToSlack } from '../lib/slack-service';
 
 interface FAQItem {
   id: string;
@@ -74,8 +78,13 @@ const faqData: FAQItem[] = [
 export default function HelpSupportScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
-  const [contactMessage, setContactMessage] = useState('');
   const [showContactForm, setShowContactForm] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: '',
+    email: '',
+    message: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const categories = [
     { id: 'all', label: 'すべて' },
@@ -93,56 +102,68 @@ export default function HelpSupportScreen() {
     setExpandedFAQ(expandedFAQ === id ? null : id);
   };
 
-  const handleContactSubmit = () => {
-    if (contactMessage.trim().length === 0) {
-      Alert.alert('エラー', 'メッセージを入力してください');
+  const handleContactFormOpen = () => {
+    setShowContactForm(true);
+  };
+
+  const handleContactFormClose = () => {
+    setShowContactForm(false);
+    setContactForm({ name: '', email: '', message: '' });
+  };
+
+  const handleContactSubmit = async () => {
+    if (!contactForm.name.trim()) {
+      Alert.alert('エラー', 'お名前を入力してください');
+      return;
+    }
+    if (!contactForm.email.trim()) {
+      Alert.alert('エラー', 'メールアドレスを入力してください');
+      return;
+    }
+    if (!contactForm.message.trim()) {
+      Alert.alert('エラー', 'お問い合わせ内容を入力してください');
       return;
     }
 
-    Alert.alert(
-      'お問い合わせ送信',
-      'お問い合わせを送信しました。通常24時間以内にご返信いたします。',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setContactMessage('');
-            setShowContactForm(false);
-          }
-        }
-      ]
-    );
-  };
+    // 簡単なメールアドレス形式チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(contactForm.email)) {
+      Alert.alert('エラー', '正しいメールアドレスを入力してください');
+      return;
+    }
 
-  const handleEmailContact = () => {
-    const email = 'support@beautyfood.jp';
-    const subject = 'BeautyFoodアプリについてのお問い合わせ';
-    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
-    
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) {
-        Linking.openURL(url);
+    setIsSubmitting(true);
+
+    try {
+      const result = await sendContactFormToSlack({
+        name: contactForm.name,
+        email: contactForm.email,
+        message: contactForm.message
+      });
+      
+      if (result.success) {
+        Alert.alert(
+          'お問い合わせ送信完了',
+          'お問い合わせありがとうございます。通常24時間以内にメールでご返信いたします。',
+          [
+            {
+              text: 'OK',
+              onPress: () => handleContactFormClose()
+            }
+          ]
+        );
       } else {
-        Alert.alert('エラー', 'メールアプリを開けませんでした');
+        throw new Error(result.error || '送信に失敗しました');
       }
-    });
-  };
-
-  const handlePhoneContact = () => {
-    Alert.alert(
-      'お電話でのお問い合わせ',
-      'BeautyFood カスタマーサポート\n\n📞 03-1234-5678\n⏰ 平日 10:00-18:00\n\n※土日祝日はお休みをいただいております',
-      [
-        { text: 'キャンセル' },
-        {
-          text: '電話する',
-          onPress: () => {
-            const phoneNumber = 'tel:03-1234-5678';
-            Linking.openURL(phoneNumber);
-          }
-        }
-      ]
-    );
+    } catch (error) {
+      Alert.alert(
+        'エラー',
+        'お問い合わせの送信に失敗しました。しばらく時間をおいて再度お試しください。',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleUserGuide = () => {
@@ -201,33 +222,14 @@ export default function HelpSupportScreen() {
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard} onPress={() => setShowContactForm(!showContactForm)}>
+          <TouchableOpacity style={[styles.actionCard, styles.primaryActionCard]} onPress={handleContactFormOpen}>
             <MessageCircle size={24} color="#ec4899" />
             <View style={styles.actionInfo}>
               <Text style={styles.actionTitle}>お問い合わせフォーム</Text>
-              <Text style={styles.actionDescription}>アプリ内から直接お問い合わせ</Text>
+              <Text style={styles.actionDescription}>24時間以内にメールでご返信いたします</Text>
             </View>
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
-
-          {showContactForm && (
-            <View style={styles.contactForm}>
-              <Text style={styles.contactFormTitle}>お問い合わせ内容</Text>
-              <TextInput
-                style={styles.contactInput}
-                multiline
-                numberOfLines={4}
-                placeholder="お困りの内容を詳しくお聞かせください..."
-                value={contactMessage}
-                onChangeText={setContactMessage}
-                textAlignVertical="top"
-              />
-              <TouchableOpacity style={styles.sendButton} onPress={handleContactSubmit}>
-                <Send size={16} color="white" />
-                <Text style={styles.sendButtonText}>送信</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
 
         {/* よくある質問 */}
@@ -287,27 +289,6 @@ export default function HelpSupportScreen() {
           ))}
         </View>
 
-        {/* 連絡先 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>その他のお問い合わせ方法</Text>
-          
-          <TouchableOpacity style={styles.contactItem} onPress={handleEmailContact}>
-            <Mail size={24} color="#6b7280" />
-            <View style={styles.contactInfo}>
-              <Text style={styles.contactTitle}>メールでお問い合わせ</Text>
-              <Text style={styles.contactDescription}>support@beautyfood.jp</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.contactItem} onPress={handlePhoneContact}>
-            <Phone size={24} color="#6b7280" />
-            <View style={styles.contactInfo}>
-              <Text style={styles.contactTitle}>お電話でお問い合わせ</Text>
-              <Text style={styles.contactDescription}>03-1234-5678（平日 10:00-18:00）</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
         {/* アプリ情報 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>アプリについて</Text>
@@ -338,6 +319,87 @@ export default function HelpSupportScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* お問い合わせフォーム（WebView Modal） */}
+      <Modal
+        visible={showContactForm}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={handleContactFormClose}
+            >
+              <X size={24} color="#1f2937" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>お問い合わせ</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>お名前 *</Text>
+              <View style={styles.inputWrapper}>
+                <User size={20} color="#9ca3af" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="山田 太郎"
+                  value={contactForm.name}
+                  onChangeText={(text) => setContactForm({...contactForm, name: text})}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>メールアドレス *</Text>
+              <View style={styles.inputWrapper}>
+                <AtSign size={20} color="#9ca3af" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="example@email.com"
+                  value={contactForm.email}
+                  onChangeText={(text) => setContactForm({...contactForm, email: text})}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>お問い合わせ内容 *</Text>
+              <TextInput
+                style={styles.textAreaInput}
+                placeholder="お困りの内容を詳しくお聞かせください..."
+                value={contactForm.message}
+                onChangeText={(text) => setContactForm({...contactForm, message: text})}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} 
+              onPress={handleContactSubmit}
+              disabled={isSubmitting}
+            >
+              <Send size={16} color="white" />
+              <Text style={styles.submitButtonText}>
+                {isSubmitting ? '送信中...' : '送信する'}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.formNote}>
+              * は必須項目です{'\n'}
+              通常24時間以内にメールでご返信いたします。
+            </Text>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -391,6 +453,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
   },
+  primaryActionCard: {
+    backgroundColor: '#fef7ff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ec4899',
+  },
   actionInfo: {
     flex: 1,
     marginLeft: 16,
@@ -405,45 +472,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'NotoSansJP-Regular',
     color: '#6b7280',
-  },
-  contactForm: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-  },
-  contactFormTitle: {
-    fontSize: 16,
-    fontFamily: 'NotoSansJP-Medium',
-    color: '#1f2937',
-    marginBottom: 12,
-  },
-  contactInput: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    fontFamily: 'NotoSansJP-Regular',
-    color: '#1f2937',
-    backgroundColor: '#fafafa',
-    marginBottom: 16,
-    minHeight: 100,
-  },
-  sendButton: {
-    backgroundColor: '#ec4899',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  sendButtonText: {
-    fontSize: 16,
-    fontFamily: 'NotoSansJP-Medium',
-    color: 'white',
-    marginLeft: 8,
   },
   categoryScroll: {
     paddingHorizontal: 20,
@@ -500,29 +528,6 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     lineHeight: 22,
   },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  contactInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  contactTitle: {
-    fontSize: 16,
-    fontFamily: 'NotoSansJP-Medium',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  contactDescription: {
-    fontSize: 14,
-    fontFamily: 'NotoSansJP-Regular',
-    color: '#6b7280',
-  },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -556,5 +561,93 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#1f2937',
+  },
+  formContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-Medium',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    backgroundColor: '#fafafa',
+    paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#1f2937',
+    paddingVertical: 12,
+  },
+  textAreaInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#1f2937',
+    backgroundColor: '#fafafa',
+    minHeight: 120,
+  },
+  submitButton: {
+    backgroundColor: '#ec4899',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-Medium',
+    color: 'white',
+    marginLeft: 8,
+  },
+  formNote: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 20,
+    lineHeight: 20,
   },
 }); 

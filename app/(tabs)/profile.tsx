@@ -7,13 +7,16 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Sparkles, Target } from 'lucide-react-native';
+import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star } from 'lucide-react-native';
 import { router } from 'expo-router';
 import PremiumModal from '@/components/PremiumModal';
 import { UserProfileService, BEAUTY_CATEGORIES, BEAUTY_LEVELS, ExtendedUserProfile } from '../../lib/meal-service';
+import Toast from 'react-native-toast-message';
+import { useAuth } from '../../contexts/AuthContext';
 
 const beautyCategories = [
   { id: 'skin_care', label: '美肌', selected: true },
@@ -56,9 +59,17 @@ export default function ProfileScreen() {
       if (userProfile) {
         setUserProfile({ ...userProfile, beautyCategories: categories });
       }
-      Alert.alert('完了', '美容目標を更新しました');
+      Toast.show({
+        type: 'success',
+        text1: '完了',
+        text2: '美容目標を更新しました',
+      });
     } catch (error) {
-      Alert.alert('エラー', '設定の保存に失敗しました');
+      Toast.show({
+        type: 'error',
+        text1: 'エラー',
+        text2: '設定の保存に失敗しました',
+      });
     }
   };
 
@@ -68,9 +79,17 @@ export default function ProfileScreen() {
       if (userProfile) {
         setUserProfile({ ...userProfile, beautyLevel: level });
       }
-      Alert.alert('完了', '美容スタイルを更新しました');
+      Toast.show({
+        type: 'success',
+        text1: '完了',
+        text2: '美容スタイルを更新しました',
+      });
     } catch (error) {
-      Alert.alert('エラー', '設定の保存に失敗しました');
+      Toast.show({
+        type: 'error',
+        text1: 'エラー',
+        text2: '設定の保存に失敗しました',
+      });
     }
   };
 
@@ -83,7 +102,11 @@ export default function ProfileScreen() {
     if (currentCategories.includes(categoryId)) {
       // 最低1つは選択されている必要がある
       if (currentCategories.length === 1) {
-        Alert.alert('注意', '最低1つの美容目標を選択してください');
+        Toast.show({
+          type: 'info',
+          text1: '注意',
+          text2: '最低1つの美容目標を選択してください',
+        });
         return;
       }
       newCategories = currentCategories.filter(id => id !== categoryId);
@@ -102,7 +125,11 @@ export default function ProfileScreen() {
         setUserProfile({ ...userProfile, notifications: newNotifications });
       }
     } catch (error) {
-      Alert.alert('エラー', '通知設定の更新に失敗しました');
+      Toast.show({
+        type: 'error',
+        text1: 'エラー',
+        text2: '通知設定の更新に失敗しました',
+      });
     }
   };
 
@@ -123,12 +150,24 @@ export default function ProfileScreen() {
                 try {
                   await UserProfileService.updateBeautyGoals(score, userProfile.dailyMealGoal);
                   setUserProfile({ ...userProfile, weeklyGoalScore: score });
-                  Alert.alert('完了', `週間目標スコアを${score}点に設定しました。`);
+                  Toast.show({
+                    type: 'success',
+                    text1: '完了',
+                    text2: `週間目標スコアを${score}点に設定しました。`,
+                  });
                 } catch (error) {
-                  Alert.alert('エラー', '設定の保存に失敗しました');
+                  Toast.show({
+                    type: 'error',
+                    text1: 'エラー',
+                    text2: '設定の保存に失敗しました',
+                  });
                 }
               } else {
-                Alert.alert('エラー', '60点から100点の間で入力してください。');
+                Toast.show({
+                  type: 'error',
+                  text1: 'エラー',
+                  text2: '60点から100点の間で入力してください。',
+                });
               }
             }
           }
@@ -156,9 +195,17 @@ export default function ProfileScreen() {
     try {
       await UserProfileService.updateBeautyGoals(userProfile.weeklyGoalScore, count);
       setUserProfile({ ...userProfile, dailyMealGoal: count });
-      Alert.alert('完了', `1日の食事回数を${count}回に設定しました。`);
+      Toast.show({
+        type: 'success',
+        text1: '完了',
+        text2: `1日の食事回数を${count}回に設定しました。`,
+      });
     } catch (error) {
-      Alert.alert('エラー', '設定の保存に失敗しました');
+      Toast.show({
+        type: 'error',
+        text1: 'エラー',
+        text2: '設定の保存に失敗しました',
+      });
     }
   };
 
@@ -242,7 +289,7 @@ export default function ProfileScreen() {
               onPress={() => setShowPremiumModal(true)}
             >
               <Text style={styles.premiumFeatureText}>
-                プレミアムプランで詳細な美容統計を確認
+                プレミアムプランで{'\n'}詳細な美容統計を確認
               </Text>
               <Text style={styles.premiumFeatureSubtext}>
                 • 月間平均スコア推移{'\n'}
@@ -330,7 +377,7 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Target size={20} color="#ec4899" />
-                            <Text style={styles.sectionTitle}>美容スタイル</Text>
+            <Text style={styles.sectionTitle}>美容スタイル</Text>
           </View>
           {beautyLevels.map((level) => (
             <TouchableOpacity
@@ -339,7 +386,7 @@ export default function ProfileScreen() {
                 styles.levelOption,
                 userProfile.beautyLevel === level.id && styles.levelOptionSelected
               ]}
-                             onPress={() => updateBeautyLevel(level.id as 'beginner' | 'intermediate' | 'advanced')}
+              onPress={() => updateBeautyLevel(level.id as 'beginner' | 'intermediate' | 'advanced')}
             >
               <View style={styles.levelInfo}>
                 <Text style={[
@@ -412,8 +459,6 @@ export default function ProfileScreen() {
         onClose={() => setShowPremiumModal(false)}
         onSubscribe={handleSubscribe}
       />
-
-
     </SafeAreaView>
   );
 }

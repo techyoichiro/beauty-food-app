@@ -24,11 +24,14 @@ import {
   Image as ImageIcon,
   Check,
   RotateCcw,
-  TestTube
+  TestTube,
+  CheckCircle,
+  Sparkles
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { processMealAnalysis, getTodayMealCount, UserProfileService } from '../../lib/meal-service';
+import { analyzeFoodImage } from '../../lib/food-analysis';
 
 const mealTimes = [
   { id: 'breakfast', label: '朝食', icon: Sun, color: '#f59e0b' },
@@ -54,7 +57,9 @@ export default function CameraScreen() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
-  const { session } = useAuth();
+  const { session, isPremium } = useAuth();
+
+  console.log('📱 カメラ画面:', { isPremium, facing });
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -84,8 +89,12 @@ export default function CameraScreen() {
   const takePicture = async () => {
     if (cameraRef.current) {
       try {
+        // 課金状態に応じた品質設定
+        const quality = isPremium ? 0.8 : 0.65;
+        console.log('📸 撮影品質:', { isPremium, quality: `${quality * 100}%` });
+
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.8,
+          quality: quality,
           base64: false,
         });
         if (photo) {
@@ -100,11 +109,15 @@ export default function CameraScreen() {
 
   const pickImageFromLibrary = async () => {
     try {
+      // 課金状態に応じた品質設定
+      const quality = isPremium ? 0.8 : 0.65;
+      console.log('🖼️ ライブラリ品質:', { isPremium, quality: `${quality * 100}%` });
+
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: quality,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -120,6 +133,40 @@ export default function CameraScreen() {
     const randomImage = DEV_TEST_IMAGES[Math.floor(Math.random() * DEV_TEST_IMAGES.length)];
     setCapturedImage(randomImage);
     setShowConfirmModal(true);
+  };
+
+  const confirmAndAnalyze = async (imageUri: string) => {
+    try {
+      setIsAnalyzing(true);
+      
+      const result = await analyzeFoodImage(imageUri, isPremium);
+      
+      // 結果画面に遷移
+      router.push({
+        pathname: '/analysis-result',
+        params: {
+          imageUri,
+          analysisResult: JSON.stringify(result),
+          isPremium: isPremium.toString(),
+        },
+      });
+    } catch (error) {
+      console.error('解析エラー:', error);
+      
+      // より具体的なエラーメッセージ
+      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
+      
+      Alert.alert(
+        '解析に失敗しました',
+        errorMessage,
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: 'もう一度試す', onPress: () => confirmAndAnalyze(imageUri) },
+        ]
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const confirmImage = () => {
@@ -217,44 +264,56 @@ export default function CameraScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-            <X size={24} color="white" />
-          </TouchableOpacity>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
+      
+      {/* Header - 絶対位置で配置 */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+          <X size={24} color="white" />
+        </TouchableOpacity>
+        
+        <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>食事を撮影</Text>
-          <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
-            <FlipHorizontal size={24} color="white" />
-          </TouchableOpacity>
+          {isPremium && (
+            <View style={styles.premiumBadge}>
+              <Sparkles size={12} color="#FFD700" />
+              <Text style={styles.premiumText}>Premium</Text>
+            </View>
+          )}
         </View>
+        
+        <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
+          <FlipHorizontal size={24} color="white" />
+        </TouchableOpacity>
+      </View>
 
-        {/* Guide */}
-        <View style={styles.guide}>
-          <Text style={styles.guideText}>食事全体が見えるように撮影してください</Text>
-        </View>
+      {/* Guide - 絶対位置で配置 */}
+      <View style={styles.guide}>
+        <Text style={styles.guideText}>
+          食事全体が見えるように撮影してください
+        </Text>
+      </View>
 
-        {/* Controls */}
-        <View style={styles.controls}>
-          <TouchableOpacity style={styles.libraryButton} onPress={pickImageFromLibrary}>
-            <ImageIcon size={24} color="white" />
-            <Text style={styles.libraryButtonText}>ライブラリ</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.captureContainer}>
-            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-              <View style={styles.captureInner}>
-                <CameraIcon size={32} color="white" />
-              </View>
-            </TouchableOpacity>
-          </View>
-          
-          <TouchableOpacity style={styles.testButton} onPress={useTestImage}>
-            <TestTube size={24} color="white" />
-            <Text style={styles.testButtonText}>テスト</Text>
+      {/* Controls - 絶対位置で配置 */}
+      <View style={styles.controls}>
+        <TouchableOpacity style={styles.libraryButton} onPress={pickImageFromLibrary}>
+          <ImageIcon size={24} color="white" />
+          <Text style={styles.libraryButtonText}>ライブラリ</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.captureContainer}>
+          <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+            <View style={styles.captureInner}>
+              <CameraIcon size={32} color="white" />
+            </View>
           </TouchableOpacity>
         </View>
-      </CameraView>
+        
+        <TouchableOpacity style={styles.testButton} onPress={useTestImage}>
+          <TestTube size={24} color="white" />
+          <Text style={styles.testButtonText}>テスト</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Image Confirmation Modal */}
       <Modal
@@ -277,7 +336,10 @@ export default function CameraScreen() {
                 <Text style={styles.retakeButtonText}>撮り直し</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.confirmButton} onPress={confirmImage}>
+              <TouchableOpacity style={styles.confirmButton} onPress={() => {
+                setShowConfirmModal(false);
+                confirmAndAnalyze(capturedImage as string);
+              }}>
                 <Check size={20} color="white" />
                 <Text style={styles.confirmButtonText}>この写真を使用</Text>
               </TouchableOpacity>
@@ -390,6 +452,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -400,8 +466,24 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 8,
   },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 18,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: 'white',
+  },
+  premiumBadge: {
+    backgroundColor: '#ec4899',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  premiumText: {
+    fontSize: 12,
     fontFamily: 'NotoSansJP-SemiBold',
     color: 'white',
   },

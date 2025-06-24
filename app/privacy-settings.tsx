@@ -16,9 +16,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface PrivacySettings {
   dataCollection: boolean;
   analyticsTracking: boolean;
-  personalizedAds: boolean;
-  shareWithPartners: boolean;
-  locationTracking: boolean;
   crashReporting: boolean;
 }
 
@@ -26,9 +23,6 @@ export default function PrivacySettingsScreen() {
   const [settings, setSettings] = useState<PrivacySettings>({
     dataCollection: true,
     analyticsTracking: true,
-    personalizedAds: false,
-    shareWithPartners: false,
-    locationTracking: false,
     crashReporting: true,
   });
 
@@ -129,21 +123,6 @@ export default function PrivacySettingsScreen() {
               thumbColor={settings.dataCollection ? '#ec4899' : '#9ca3af'}
             />
           </View>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>位置情報の利用</Text>
-              <Text style={styles.settingDescription}>
-                地域に応じた食材情報の提供のため
-              </Text>
-            </View>
-            <Switch
-              value={settings.locationTracking}
-              onValueChange={() => toggleSetting('locationTracking')}
-              trackColor={{ false: '#f3f4f6', true: '#fce7f3' }}
-              thumbColor={settings.locationTracking ? '#ec4899' : '#9ca3af'}
-            />
-          </View>
         </View>
 
         {/* 分析・改善 */}
@@ -180,44 +159,6 @@ export default function PrivacySettingsScreen() {
               onValueChange={() => toggleSetting('crashReporting')}
               trackColor={{ false: '#f3f4f6', true: '#fce7f3' }}
               thumbColor={settings.crashReporting ? '#ec4899' : '#9ca3af'}
-            />
-          </View>
-        </View>
-
-        {/* 広告・マーケティング */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Share2 size={20} color="#ec4899" />
-            <Text style={styles.sectionTitle}>広告・マーケティング</Text>
-          </View>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>パーソナライズ広告</Text>
-              <Text style={styles.settingDescription}>
-                あなたの興味に基づいた広告の表示
-              </Text>
-            </View>
-            <Switch
-              value={settings.personalizedAds}
-              onValueChange={() => toggleSetting('personalizedAds')}
-              trackColor={{ false: '#f3f4f6', true: '#fce7f3' }}
-              thumbColor={settings.personalizedAds ? '#ec4899' : '#9ca3af'}
-            />
-          </View>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>パートナーとの情報共有</Text>
-              <Text style={styles.settingDescription}>
-                提携企業との匿名化されたデータ共有
-              </Text>
-            </View>
-            <Switch
-              value={settings.shareWithPartners}
-              onValueChange={() => toggleSetting('shareWithPartners')}
-              trackColor={{ false: '#f3f4f6', true: '#fce7f3' }}
-              thumbColor={settings.shareWithPartners ? '#ec4899' : '#9ca3af'}
             />
           </View>
         </View>

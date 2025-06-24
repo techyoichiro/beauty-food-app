@@ -9,9 +9,11 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isFirstLaunch: boolean;
+  isPremium: boolean;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  upgradeToPremium: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     // 初回起動チェック
@@ -64,8 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-
-
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -84,14 +85,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const upgradeToPremium = async () => {
+    try {
+      // プレミアムアップグレードの実装（後で詳細実装）
+      console.log('Upgrade to Premium - 実装予定');
+    } catch (error) {
+      console.error('Upgrade to Premium Error:', error);
+      throw error;
+    }
+  };
+
   const value = {
     session,
     user,
     loading,
     isFirstLaunch,
+    isPremium,
     signInWithApple,
     signOut,
     completeOnboarding,
+    upgradeToPremium,
   };
 
   return (
