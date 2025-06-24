@@ -145,8 +145,9 @@ export const createFoodAnalysisPrompt = (userProfile: {
   "immediate_advice": "今すぐできる改善提案（ユーザーの美容目標「${categoryInfo.categoryNames}」に特化）",
   "next_meal_advice": "次回向け改善提案（ユーザーの美容目標「${categoryInfo.categoryNames}」に特化）",
   "beauty_benefits": [
-    "この食事から得られる美容効果1（${categoryInfo.categoryNames}観点）",
-    "この食事から得られる美容効果2（${categoryInfo.categoryNames}観点）"
+    "今回の食事で期待できる美容効果1（${categoryInfo.categoryNames}観点）",
+    "今回の食事で期待できる美容効果2（${categoryInfo.categoryNames}観点）",
+    "今回の食事で期待できる美容効果3（${categoryInfo.categoryNames}観点）"
   ]
 }
 
@@ -178,7 +179,233 @@ export const createFoodAnalysisPrompt = (userProfile: {
 - 美容スコアは科学的根拠に基づいて算出してください
 - ユーザーの美容目標に特化したアドバイスを生成してください
 - 説明レベルは「${categoryInfo.levelStyle}」に合わせてください
+- beauty_benefitsは「今回の食事を摂取することで期待できる具体的な美容効果」を記載してください
+- 美容効果は短期的（数時間〜数日）で実感できるものと中長期的（数週間〜数ヶ月）なものの両方を含めてください
 `;
+};
+
+// 食べ物以外の物体に対するユーモラスなメッセージ
+const NON_FOOD_MESSAGES = {
+  person: [
+    "え！！これは人間...ですよね？？まさか食べてないですよね...",
+    "人間は美容食材ではありませんよ！😅",
+    "お友達の写真ですか？美容効果は...測定不能です！"
+  ],
+  animal: [
+    "猫ちゃんは判定できませんよ！🐱",
+    "わんちゃんは可愛いですが、美容スコアは出せません！🐕",
+    "動物さんの美容効果は...愛でることでしょうか？💕"
+  ],
+  electronics: [
+    "パソコンは固くて食べるのには向いてませんね...",
+    "スマホのカロリーは0kcalですが、栄養価も0です📱",
+    "電子機器の美容効果は...ブルーライトカットでしょうか？"
+  ],
+  furniture: [
+    "椅子は座るものであって、食べるものではありません！",
+    "テーブルの木材は食物繊維豊富ですが...おすすめしません😅",
+    "家具の美容効果は、お部屋が綺麗になることでしょうか？"
+  ],
+  vehicle: [
+    "車は鉄分豊富ですが、消化に悪そうです🚗",
+    "自転車のカロリー消費効果はありますが、食べ物ではありません！",
+    "乗り物の美容効果は...移動による運動でしょうか？"
+  ],
+  nature: [
+    "お花は美しいですが、食用花でない限り美容解析できません🌸",
+    "木や石の美容効果は...自然に癒されることでしょうか？",
+    "景色は心の栄養になりますが、カロリー計算はできません！"
+  ],
+  object: [
+    "これは...食べ物ではないようですね？🤔",
+    "美容解析には食事の写真が必要です！",
+    "この物体の栄養価は...測定不能です！"
+  ],
+  unclear: [
+    "う〜ん、これが何なのかよくわかりません🤷‍♀️",
+    "もしかして、とても珍しい食材でしょうか？",
+    "画像がぼやけているか、食べ物以外のようです"
+  ]
+};
+
+// 食べ物判定用のプロンプト
+export const createFoodDetectionPrompt = () => {
+  return `
+この画像を見て、食べ物（食事、料理、食材、飲み物、お菓子など）が含まれているかを判定してください。
+
+以下のJSON形式で回答してください:
+
+{
+  "is_food": true/false,
+  "detected_object": "person|animal|electronics|furniture|vehicle|nature|object|unclear",
+  "confidence": 0.95,
+  "description": "画像に写っているものの簡潔な説明（日本語）"
+}
+
+判定基準:
+- is_food: true = 食べ物、料理、食材、飲み物、お菓子など食事に関連するもの
+- is_food: false = 人、動物、電子機器、家具、乗り物、自然、その他の物体
+
+detected_object の分類:
+- person: 人間、顔、体の一部
+- animal: 動物、ペット、昆虫など
+- electronics: スマホ、パソコン、テレビ、電子機器
+- furniture: 椅子、テーブル、ベッド、家具
+- vehicle: 車、自転車、電車、乗り物
+- nature: 花、木、石、風景、自然物
+- object: その他の物体、道具、建物など
+- unclear: 判別困難、ぼやけている、暗い
+
+重要: 有効なJSONオブジェクトのみを返してください。
+`;
+};
+
+// 食べ物以外の場合のユーモラスなレスポンス生成
+export const generateNonFoodResponse = (detectedObject: string): any => {
+  const category = detectedObject as keyof typeof NON_FOOD_MESSAGES;
+  const messages = NON_FOOD_MESSAGES[category] || NON_FOOD_MESSAGES.object;
+  const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+  
+  return {
+    is_food: false,
+    detected_object: detectedObject,
+    humorous_message: randomMessage,
+    suggestion: "美容効果を分析するには、食事や食材の写真を撮影してくださいね！📸✨",
+    detected_foods: [],
+    nutrition_analysis: {
+      calories: 0,
+      protein: 0,
+      carbohydrates: 0,
+      fat: 0,
+      fiber: 0,
+      vitamins: {
+        vitamin_c: 0,
+        vitamin_e: 0,
+        vitamin_a: 0,
+        vitamin_b_complex: 0
+      },
+      minerals: {
+        iron: 0,
+        zinc: 0,
+        calcium: 0,
+        magnesium: 0
+      }
+    },
+    beauty_score: {
+      skin_care: 0,
+      anti_aging: 0,
+      detox: 0,
+      circulation: 0,
+      hair_nails: 0,
+      overall: 0
+    },
+    immediate_advice: "まずは食事の写真を撮影してみましょう！",
+    next_meal_advice: "次回は美味しそうな料理の写真をお待ちしています🍽️",
+    beauty_benefits: [
+      "食事の写真を撮ることで、食生活への意識が高まります",
+      "美容に良い食材を意識的に選ぶきっかけになります",
+      "栄養バランスを考える習慣が身につきます"
+    ]
+  };
+};
+
+// 画像をBase64に変換する関数
+const convertImageToBase64 = async (imageUri: string): Promise<string> => {
+  try {
+    if (imageUri.startsWith('data:')) {
+      // 既にBase64の場合はそのまま返す
+      return imageUri;
+    }
+    
+    // React Nativeのファイルシステムを使用してBase64変換
+    const FileSystem = await import('expo-file-system');
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (error) {
+    console.error('Base64変換エラー:', error);
+    throw new Error('画像の変換に失敗しました');
+  }
+};
+
+// 食べ物判定を行う関数
+export const detectFoodInImage = async (imageUri: string): Promise<{
+  isFood: boolean;
+  detectedObject?: string;
+  confidence?: number;
+  description?: string;
+}> => {
+  try {
+    console.log('OpenAI食べ物判定API呼び出し開始');
+    
+    // 画像をBase64に変換
+    const base64Image = await convertImageToBase64(imageUri);
+    console.log('Base64変換完了');
+    
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "あなたは画像判定の専門家です。必ず有効なJSON形式でのみ回答してください。Markdownやその他の形式は使用せず、純粋なJSONオブジェクトのみを返してください。"
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: createFoodDetectionPrompt()
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: base64Image,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 200,
+      response_format: { type: "json_object" }
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API response is empty');
+    }
+
+    console.log('OpenAI食べ物判定API生レスポンス:', content);
+    
+    // Markdownのコードブロックを除去
+    let cleanedContent = content.trim();
+    if (cleanedContent.startsWith('```json')) {
+      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    console.log('クリーニング後のレスポンス:', cleanedContent);
+    const result = JSON.parse(cleanedContent);
+    console.log('パース後の判定結果:', result);
+    
+    return {
+      isFood: result.is_food,
+      detectedObject: result.detected_object,
+      confidence: result.confidence,
+      description: result.description
+    };
+    
+  } catch (error) {
+    console.error('Food detection error:', error);
+    // エラーの場合は食べ物以外として処理（安全側に倒す）
+    return {
+      isFood: false,
+      detectedObject: 'unclear',
+      confidence: 0.5,
+      description: '判定できませんでした'
+    };
+  }
 };
 
 export default openai; 

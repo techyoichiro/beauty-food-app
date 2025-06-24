@@ -7,13 +7,16 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, TrendingUp, ChartBar as BarChart3, Crown } from 'lucide-react-native';
 
 import { router } from 'expo-router';
 import { FoodAnalysisResult } from '../../lib/food-analysis';
-import { UserProfileService, ExtendedUserProfile } from '../../lib/meal-service';
+import { UserProfileService, ExtendedUserProfile, getUserMealRecords, MealRecord } from '../../lib/meal-service';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -52,6 +55,39 @@ const generateCategoryAdvice = (score: number, categories: string[]) => {
   
   return adviceMap[primaryCategory as keyof typeof adviceMap]?.[level] || 
          "バランスの良い食事を心がけましょう";
+};
+
+// ダミーの食事記録データ生成
+const generateDummyMealRecords = (userProfile: ExtendedUserProfile): MealRecord[] => {
+  const today = new Date();
+  const records: MealRecord[] = [];
+  
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    
+    // 1日あたり1-3食のランダムな食事記録を生成
+    const mealsPerDay = Math.floor(Math.random() * 3) + 1;
+    
+    for (let j = 0; j < mealsPerDay; j++) {
+      const mealTypes = ['朝食', '昼食', '夕食'];
+      const score = Math.floor(Math.random() * 40) + 60; // 60-100のスコア
+      
+      records.push({
+        id: `dummy-${i}-${j}`,
+        user_id: 'guest',
+        taken_at: date,
+        meal_timing: (j === 0 ? 'breakfast' : j === 1 ? 'lunch' : j === 2 ? 'dinner' : 'snack') as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+        image_url: `https://images.pexels.com/photos/${1640770 + (i * 3 + j) % 10}/pexels-photo-${1640770 + (i * 3 + j) % 10}.jpeg?auto=compress&cs=tinysrgb&w=300`,
+        analysis_status: 'completed' as const,
+        created_at: date,
+        updated_at: date,
+        analysisResult: createDummyAnalysisResult(score, userProfile)
+      });
+    }
+  }
+  
+  return records.sort((a, b) => new Date(b.taken_at).getTime() - new Date(a.taken_at).getTime());
 };
 
 // ダミーの解析結果データ（ユーザープロフィール対応）
@@ -139,99 +175,121 @@ const createDummyAnalysisResult = (score: number, userProfile: ExtendedUserProfi
 export default function HistoryScreen() {
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily');
   const [userProfile, setUserProfile] = useState<ExtendedUserProfile | null>(null);
+  const [mealRecords, setMealRecords] = useState<MealRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const { session } = useAuth();
   const isFreePlan = true;
 
   useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const profile = await UserProfileService.getProfile();
-        setUserProfile(profile);
-      } catch (error) {
-        console.error('ユーザープロフィール取得エラー:', error);
-        // デフォルトプロフィールを設定
-        setUserProfile({
-          beautyCategories: ['skin_care'],
-          beautyLevel: 'intermediate',
-          weeklyGoalScore: 70,
-          dailyMealGoal: 3,
-          notifications: { meal: true, analysis: true, weekly: true }
-        });
-      }
-    };
-    loadUserProfile();
-  }, []);
+    loadData();
+  }, [session]);
 
-  // プロフィールが読み込まれていない場合のローディング
-  if (!userProfile) {
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // ユーザープロフィール取得
+      const profile = await UserProfileService.getProfile();
+      setUserProfile(profile);
+
+      // 食事記録取得
+      if (session?.user?.id) {
+        // 認証済みユーザーの場合は実際のデータを取得
+        const records = await getUserMealRecords(session.user.id, 20);
+        setMealRecords(records);
+      } else {
+        // ゲストユーザーの場合はダミーデータを生成
+        const dummyRecords = generateDummyMealRecords(profile);
+        setMealRecords(dummyRecords);
+      }
+    } catch (error) {
+      console.error('データ取得エラー:', error);
+      // エラー時はデフォルトプロフィールとダミーデータを設定
+      const defaultProfile: ExtendedUserProfile = {
+        beautyCategories: ['skin_care'],
+        beautyLevel: 'intermediate',
+        weeklyGoalScore: 70,
+        dailyMealGoal: 3,
+        notifications: { meal: true, analysis: true, weekly: true }
+      };
+      setUserProfile(defaultProfile);
+      setMealRecords(generateDummyMealRecords(defaultProfile));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  // プロフィールまたはデータが読み込まれていない場合のローディング
+  if (!userProfile || loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ec4899" />
           <Text style={styles.loadingText}>読み込み中...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ユーザープロフィールを使用してダミーデータを生成
-  const historyData = [
-    {
-      date: '2024/01/15',
-      meals: [
-        {
-          id: 1,
-          type: '朝食',
-          time: '8:30',
-          image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=300',
-          score: 85,
-          advice: '野菜の摂取量が理想的です',
-          analysisResult: createDummyAnalysisResult(85, userProfile)
-        },
-        {
-          id: 2,
-          type: '昼食',
-          time: '12:45',
-          image: 'https://images.pexels.com/photos/1640773/pexels-photo-1640773.jpeg?auto=compress&cs=tinysrgb&w=300',
-          score: 72,
-          advice: 'タンパク質をもう少し追加しましょう',
-          analysisResult: createDummyAnalysisResult(72, userProfile)
-        },
-        {
-          id: 3,
-          type: '夕食',
-          time: '19:15',
-          image: 'https://images.pexels.com/photos/1640772/pexels-photo-1640772.jpeg?auto=compress&cs=tinysrgb&w=300',
-          score: 90,
-          advice: 'バランスの取れた理想的な食事です',
-          analysisResult: createDummyAnalysisResult(90, userProfile)
-        },
-      ],
-      averageScore: 82,
-    },
-    {
-      date: '2024/01/14',
-      meals: [
-        {
-          id: 4,
-          type: '朝食',
-          time: '9:00',
-          image: 'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&w=300',
-          score: 78,
-          advice: 'フルーツを追加すると更に良いでしょう',
-          analysisResult: createDummyAnalysisResult(78, userProfile)
-        },
-        {
-          id: 5,
-          type: '昼食',
-          time: '13:20',
-          image: 'https://images.pexels.com/photos/1640775/pexels-photo-1640775.jpeg?auto=compress&cs=tinysrgb&w=300',
-          score: 68,
-          advice: '野菜を増やしましょう',
-          analysisResult: createDummyAnalysisResult(68, userProfile)
-        },
-      ],
-      averageScore: 73,
-    },
-  ];
+  // 実際の食事記録データを日付別にグループ化
+  const groupedMealRecords = mealRecords.reduce((groups: { [key: string]: MealRecord[] }, record) => {
+    const date = new Date(record.taken_at).toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '/');
+    
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(record);
+    return groups;
+  }, {});
+
+  // 日付別履歴データを生成
+  const historyData = Object.entries(groupedMealRecords).map(([date, meals]) => {
+    const scores = meals
+      .filter(meal => meal.analysisResult?.beauty_score?.overall)
+      .map(meal => meal.analysisResult.beauty_score.overall);
+    
+    const averageScore = scores.length > 0 
+      ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+      : 0;
+
+    return {
+      date,
+      meals: meals.map(meal => ({
+        id: meal.id,
+        type: getMealTypeJapanese(meal.meal_timing),
+        time: new Date(meal.taken_at).toLocaleTimeString('ja-JP', {
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        image: meal.image_url,
+        score: meal.analysisResult?.beauty_score?.overall || 0,
+        advice: meal.analysisResult?.immediate_advice || '解析中...',
+        analysisResult: meal.analysisResult
+      })),
+      averageScore
+    };
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // 食事タイミングを日本語に変換
+  function getMealTypeJapanese(timing: string): string {
+    switch (timing) {
+      case 'breakfast': return '朝食';
+      case 'lunch': return '昼食';
+      case 'dinner': return '夕食';
+      case 'snack': return '間食';
+      default: return '食事';
+    }
+  }
 
   const weeklyScores = [65, 72, 78, 82, 85, 79, 88];
   const days = ['月', '火', '水', '木', '金', '土', '日'];
@@ -332,26 +390,46 @@ export default function HistoryScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        style={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#ec4899']}
+            tintColor="#ec4899"
+          />
+        }
+      >
         {selectedTab === 'daily' ? (
           <>
-            {historyData.map((dayData, dayIndex) => (
-              <View key={dayIndex} style={styles.daySection}>
-                <View style={styles.dayHeader}>
-                  <Text style={styles.dayDate}>{dayData.date}</Text>
-                  <View style={styles.dayScore}>
-                    <Text style={styles.dayScoreLabel}>平均スコア</Text>
-                    <Text style={[
-                      styles.dayScoreValue,
-                      { color: dayData.averageScore >= 80 ? '#10b981' : dayData.averageScore >= 70 ? '#f59e0b' : '#ec4899' }
-                    ]}>
-                      {dayData.averageScore}
-                    </Text>
+            {historyData.length > 0 ? (
+              historyData.map((dayData, dayIndex) => (
+                <View key={dayIndex} style={styles.daySection}>
+                  <View style={styles.dayHeader}>
+                    <Text style={styles.dayDate}>{dayData.date}</Text>
+                    <View style={styles.dayScore}>
+                      <Text style={styles.dayScoreLabel}>平均スコア</Text>
+                      <Text style={[
+                        styles.dayScoreValue,
+                        { color: dayData.averageScore >= 80 ? '#10b981' : dayData.averageScore >= 70 ? '#f59e0b' : '#ec4899' }
+                      ]}>
+                        {dayData.averageScore}
+                      </Text>
+                    </View>
                   </View>
+                  {dayData.meals.map(renderMealCard)}
                 </View>
-                {dayData.meals.map(renderMealCard)}
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateTitle}>食事記録がありません</Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  カメラで食事を撮影して、美容スコアを記録しましょう！
+                </Text>
               </View>
-            ))}
+            )}
           </>
         ) : (
           <>
@@ -659,5 +737,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'NotoSansJP-Bold',
     color: '#1f2937',
+    marginTop: 16,
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  emptyStateSubtitle: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#9ca3af',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

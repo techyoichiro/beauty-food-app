@@ -149,9 +149,16 @@ export default function CameraScreen() {
         if (todayCount >= 3 && !session.user.user_metadata?.premium) {
           Alert.alert(
             '制限に達しました',
-            '無料版では1日3回まで解析できます。プレミアム版にアップグレードしてください。',
+            '無料版では1日3回まで解析できます。プレミアム版にアップグレードすると無制限で解析できます。',
             [
-              { text: 'OK', onPress: () => setIsAnalyzing(false) }
+              { text: 'キャンセル', onPress: () => setIsAnalyzing(false) },
+              { 
+                text: 'プレミアム版を見る', 
+                onPress: () => {
+                  setIsAnalyzing(false);
+                  router.push('/(tabs)/profile');
+                }
+              }
             ]
           );
           return;

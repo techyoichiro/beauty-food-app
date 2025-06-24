@@ -11,15 +11,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Sparkles, Target } from 'lucide-react-native';
+import { router } from 'expo-router';
 import PremiumModal from '@/components/PremiumModal';
 import { UserProfileService, BEAUTY_CATEGORIES, BEAUTY_LEVELS, ExtendedUserProfile } from '../../lib/meal-service';
 
 const beautyCategories = [
-  { id: 'skin', label: '美肌', selected: true },
-  { id: 'antiaging', label: 'アンチエイジング', selected: true },
-  { id: 'diet', label: 'ダイエット', selected: false },
-  { id: 'hair', label: '美髪', selected: true },
-  { id: 'nail', label: '美爪', selected: false },
+  { id: 'skin_care', label: '美肌', selected: true },
+  { id: 'anti_aging', label: 'アンチエイジング', selected: true },
+  { id: 'detox', label: 'デトックス', selected: false },
+  { id: 'circulation', label: '血行促進', selected: false },
+  { id: 'hair_nails', label: '髪・爪の健康', selected: true },
 ];
 
 const beautyLevels = [
@@ -375,13 +376,19 @@ export default function ProfileScreen() {
             />
           </View>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity 
+            style={styles.settingItem}
+            onPress={() => router.push('/privacy-settings')}
+          >
             <Shield size={20} color="#6b7280" />
             <Text style={styles.settingLabel}>プライバシー設定</Text>
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity 
+            style={styles.settingItem}
+            onPress={() => router.push('/help-support')}
+          >
             <HelpCircle size={20} color="#6b7280" />
             <Text style={styles.settingLabel}>ヘルプ・サポート</Text>
             <ChevronRight size={20} color="#9ca3af" />

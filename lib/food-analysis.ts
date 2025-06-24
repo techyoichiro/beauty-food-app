@@ -45,6 +45,11 @@ export interface FoodAnalysisResult {
   immediate_advice: string;
   next_meal_advice: string;
   beauty_benefits: string[];
+  // 食べ物以外の場合のプロパティ（オプショナル）
+  is_food?: boolean;
+  detected_object?: string;
+  humorous_message?: string;
+  suggestion?: string;
 }
 
 export interface UserProfile {

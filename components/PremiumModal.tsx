@@ -149,31 +149,33 @@ export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumM
                   </View>
                 )}
                 
-                <View style={styles.planHeader}>
-                  <View style={styles.planInfo}>
-                    <Text style={styles.planName}>{plan.name}</Text>
-                    {plan.savings && (
-                      <Text style={styles.planSavings}>{plan.savings}</Text>
-                    )}
-                  </View>
-                  <View style={styles.planPricing}>
-                    {plan.originalPrice && (
-                      <Text style={styles.originalPrice}>{plan.originalPrice}</Text>
-                    )}
-                    <View style={styles.currentPrice}>
-                      <Text style={styles.planPrice}>{plan.price}</Text>
-                      <Text style={styles.planPeriod}>{plan.period}</Text>
+                <View style={styles.planContent}>
+                  <View style={styles.planHeader}>
+                    <View style={styles.planInfo}>
+                      <Text style={styles.planName}>{plan.name}</Text>
+                      {plan.savings && (
+                        <Text style={styles.planSavings}>{plan.savings}</Text>
+                      )}
+                    </View>
+                    <View style={styles.planPricing}>
+                      {plan.originalPrice && (
+                        <Text style={styles.originalPrice}>{plan.originalPrice}</Text>
+                      )}
+                      <View style={styles.currentPrice}>
+                        <Text style={styles.planPrice}>{plan.price}</Text>
+                        <Text style={styles.planPeriod}>{plan.period}</Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-
-                <View style={[
-                  styles.radioButton,
-                  selectedPlan === plan.id && styles.radioButtonSelected
-                ]}>
-                  {selectedPlan === plan.id && (
-                    <Check size={16} color="white" />
-                  )}
+                  
+                  <View style={[
+                    styles.radioButton,
+                    selectedPlan === plan.id && styles.radioButtonSelected
+                  ]}>
+                    {selectedPlan === plan.id && (
+                      <Check size={16} color="white" />
+                    )}
+                  </View>
                 </View>
               </TouchableOpacity>
             ))}
@@ -359,11 +361,17 @@ const styles = StyleSheet.create({
     color: 'white',
     marginLeft: 4,
   },
+  planContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
   planHeader: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginRight: 16,
   },
   planInfo: {
     flex: 1,
@@ -410,9 +418,6 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   radioButton: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -420,6 +425,7 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 2,
   },
   radioButtonSelected: {
     backgroundColor: '#ec4899',

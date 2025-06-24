@@ -207,19 +207,67 @@ export const processMealAnalysis = async (
   try {
     console.log('食事解析フロー開始:', { userId, mealTiming });
     
-    // Step 1: 画像をプライベートStorageにアップロード
+    // Step 1: まず食べ物判定を行う
+    console.log('食べ物判定開始');
+    const { detectFoodInImage, generateNonFoodResponse } = await import('./openai');
+    
+    let foodDetection;
+    try {
+      foodDetection = await detectFoodInImage(imageUri);
+    } catch (error) {
+      console.error('食べ物判定でエラー発生:', error);
+      // 判定エラーの場合は食べ物以外として処理
+      foodDetection = {
+        isFood: false,
+        detectedObject: 'unclear',
+        confidence: 0.5,
+        description: '判定エラーが発生しました'
+      };
+    }
+    
+    // Step 2: 食べ物以外の場合は即座にユーモラスなレスポンスを返す
+    console.log('食べ物判定結果:', foodDetection);
+    if (!foodDetection.isFood) {
+      console.log('食べ物以外を検出:', foodDetection.detectedObject);
+      
+      // 画像をアップロードして記録は作成する（履歴に残すため）
+      const imagePath = await uploadMealImage(imageUri, userId);
+      mealRecord = await createMealRecord(userId, imagePath, mealTiming);
+      
+      // ユーモラスなレスポンスを生成
+      const nonFoodResponse = generateNonFoodResponse(foodDetection.detectedObject || 'object');
+      
+      // 特別な解析結果として保存
+      await saveAnalysisResult(
+        mealRecord.id, 
+        nonFoodResponse, 
+        JSON.stringify(nonFoodResponse)
+      );
+      
+      console.log('食べ物以外の解析完了:', mealRecord.id);
+      
+      return {
+        mealRecord,
+        analysisResult: nonFoodResponse
+      };
+    }
+    
+    // Step 3: 食べ物の場合は通常の解析フローを続行
+    console.log('食べ物を検出、通常解析開始');
+    
+    // Step 4: 画像をプライベートStorageにアップロード
     const imagePath = await uploadMealImage(imageUri, userId);
     
-    // Step 2: 食事記録を作成
+    // Step 5: 食事記録を作成
     mealRecord = await createMealRecord(userId, imagePath, mealTiming);
     
-    // Step 3: 解析開始をログ出力
+    // Step 6: 解析開始をログ出力
     console.log('AI解析開始:', mealRecord.id);
     
-    // Step 4: AI解析を実行（元の画像URIを使用）
+    // Step 7: AI解析を実行（元の画像URIを使用）
     const analysisResult = await analyzeFoodImage(imageUri, userProfile);
     
-    // Step 5: 解析結果を保存（この中でステータスが'completed'に更新される）
+    // Step 8: 解析結果を保存（この中でステータスが'completed'に更新される）
     await saveAnalysisResult(
       mealRecord.id, 
       analysisResult, 
