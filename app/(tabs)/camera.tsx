@@ -28,7 +28,7 @@ import {
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { processMealAnalysis, getTodayMealCount } from '../../lib/meal-service';
+import { processMealAnalysis, getTodayMealCount, UserProfileService } from '../../lib/meal-service';
 
 const mealTimes = [
   { id: 'breakfast', label: '朝食', icon: Sun, color: '#f59e0b' },
@@ -158,11 +158,8 @@ export default function CameraScreen() {
         }
       }
 
-      // ユーザープロフィールを取得（仮のデータ）
-      const userProfile = {
-        beautyCategories: ['skin_care', 'anti_aging'], // 実際はSupabaseから取得
-        beautyLevel: 'beginner' as const
-      };
+      // ユーザープロフィールを取得
+      const userProfile = await UserProfileService.getProfile();
 
       // ゲストユーザーの場合は一時的なIDを使用
       const userId = session?.user?.id || 'guest_user';

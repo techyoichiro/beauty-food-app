@@ -1,16 +1,27 @@
 import { supabase } from './supabase';
 import { analyzeFoodImage, saveAnalysisResult, UserProfile } from './food-analysis';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export interface ExtendedUserProfile extends UserProfile {
+  weeklyGoalScore: number;
+  dailyMealGoal: number;
+  notifications: {
+    meal: boolean;
+    analysis: boolean;
+    weekly: boolean;
+  };
+}
 
 export interface MealRecord {
   id: string;
   user_id: string;
-  image_url: string;
+  taken_at: Date;
   meal_timing: 'breakfast' | 'lunch' | 'dinner' | 'snack';
-  meal_timing_auto: boolean;
-  taken_at: string;
-  analysis_status: 'pending' | 'analyzing' | 'completed' | 'failed';
-  created_at: string;
-  updated_at: string;
+  image_url: string;
+  analysis_status: 'pending' | 'completed' | 'failed';
+  created_at: Date;
+  updated_at: Date;
+  analysisResult?: any;
 }
 
 // プライベートStorageに画像をアップロード（ゲストユーザー対応）
@@ -114,11 +125,10 @@ export const createMealRecord = async (
         user_id: userId,
         image_url: imagePath,
         meal_timing: mealTiming,
-        meal_timing_auto: false,
-        taken_at: new Date().toISOString(),
+        taken_at: new Date(),
         analysis_status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: new Date(),
+        updated_at: new Date(),
       };
       console.log('ゲストユーザー食事記録作成完了:', guestRecord.id);
       return guestRecord;
@@ -131,7 +141,6 @@ export const createMealRecord = async (
         user_id: userId,
         image_url: imagePath, // プライベートStorageのパスを保存
         meal_timing: mealTiming,
-        meal_timing_auto: false, // 手動選択
         analysis_status: 'pending'
       })
       .select()
@@ -154,7 +163,7 @@ export const createMealRecord = async (
 // 食事記録のステータスを更新（ゲストユーザー対応）
 export const updateMealRecordStatus = async (
   mealRecordId: string,
-  status: 'pending' | 'analyzing' | 'completed' | 'failed'
+  status: 'pending' | 'completed' | 'failed'
 ): Promise<void> => {
   try {
     // ゲストユーザーの場合はスキップ
@@ -167,7 +176,7 @@ export const updateMealRecordStatus = async (
       .from('meal_records')
       .update({ 
         analysis_status: status,
-        updated_at: new Date().toISOString()
+        updated_at: new Date()
       })
       .eq('id', mealRecordId);
     
@@ -204,8 +213,8 @@ export const processMealAnalysis = async (
     // Step 2: 食事記録を作成
     mealRecord = await createMealRecord(userId, imagePath, mealTiming);
     
-    // Step 3: 解析中ステータスに更新
-    await updateMealRecordStatus(mealRecord.id, 'analyzing');
+    // Step 3: 解析開始をログ出力
+    console.log('AI解析開始:', mealRecord.id);
     
     // Step 4: AI解析を実行（元の画像URIを使用）
     const analysisResult = await analyzeFoodImage(imageUri, userProfile);
@@ -304,12 +313,209 @@ export const getTodayMealCount = async (userId: string): Promise<number> => {
   }
 };
 
-export default {
-  uploadMealImage,
-  getSignedImageUrl,
-  createMealRecord,
-  updateMealRecordStatus,
-  processMealAnalysis,
-  getUserMealRecords,
-  getTodayMealCount
-}; 
+// デフォルトユーザープロフィール
+const DEFAULT_USER_PROFILE: ExtendedUserProfile = {
+  beautyCategories: ['skin_care'],
+  beautyLevel: 'intermediate',
+  weeklyGoalScore: 70,
+  dailyMealGoal: 3,
+  notifications: {
+    meal: true,
+    analysis: true,
+    weekly: true,
+  },
+};
+
+// ユーザープロフィール管理
+export const UserProfileService = {
+  // プロフィール取得
+  async getProfile(): Promise<ExtendedUserProfile> {
+    try {
+      const stored = await AsyncStorage.getItem('userProfile');
+      if (stored) {
+        return { ...DEFAULT_USER_PROFILE, ...JSON.parse(stored) };
+      }
+      return DEFAULT_USER_PROFILE;
+    } catch (error) {
+      console.error('Error getting user profile:', error);
+      return DEFAULT_USER_PROFILE;
+    }
+  },
+
+  // プロフィール保存
+  async saveProfile(profile: Partial<ExtendedUserProfile>): Promise<void> {
+    try {
+      const current = await this.getProfile();
+      const updated = { ...current, ...profile };
+      await AsyncStorage.setItem('userProfile', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Error saving user profile:', error);
+      throw error;
+    }
+  },
+
+  // 美容カテゴリー更新
+  async updateBeautyCategories(categories: string[]): Promise<void> {
+    await this.saveProfile({ beautyCategories: categories });
+  },
+
+  // 美意識レベル更新
+  async updateBeautyLevel(level: 'beginner' | 'intermediate' | 'advanced'): Promise<void> {
+    await this.saveProfile({ beautyLevel: level });
+  },
+
+  // 美容目標更新
+  async updateBeautyGoals(weeklyGoalScore: number, dailyMealGoal: number): Promise<void> {
+    await this.saveProfile({ weeklyGoalScore, dailyMealGoal });
+  },
+
+  // 通知設定更新
+  async updateNotifications(notifications: ExtendedUserProfile['notifications']): Promise<void> {
+    await this.saveProfile({ notifications });
+  },
+};
+
+// 食事記録管理
+export const MealService = {
+  // 食事記録保存
+  async saveMealRecord(record: Omit<MealRecord, 'id'>): Promise<string> {
+    try {
+      const id = Date.now().toString();
+      const mealRecord: MealRecord = { ...record, id };
+      
+      const stored = await AsyncStorage.getItem('mealRecords');
+      const records: MealRecord[] = stored ? JSON.parse(stored) : [];
+      records.unshift(mealRecord);
+      
+      // 最新100件のみ保持
+      const trimmedRecords = records.slice(0, 100);
+      await AsyncStorage.setItem('mealRecords', JSON.stringify(trimmedRecords));
+      
+      return id;
+    } catch (error) {
+      console.error('Error saving meal record:', error);
+      throw error;
+    }
+  },
+
+  // 食事記録取得
+  async getMealRecords(limit?: number): Promise<MealRecord[]> {
+    try {
+      const stored = await AsyncStorage.getItem('mealRecords');
+      const records: MealRecord[] = stored ? JSON.parse(stored) : [];
+      
+      // 日付でソート（新しい順）
+      records.sort((a, b) => new Date(b.taken_at).getTime() - new Date(a.taken_at).getTime());
+      
+      return limit ? records.slice(0, limit) : records;
+    } catch (error) {
+      console.error('Error getting meal records:', error);
+      return [];
+    }
+  },
+
+  // 特定の食事記録取得
+  async getMealRecord(id: string): Promise<MealRecord | null> {
+    try {
+      const records = await this.getMealRecords();
+      return records.find(record => record.id === id) || null;
+    } catch (error) {
+      console.error('Error getting meal record:', error);
+      return null;
+    }
+  },
+
+  // 食事記録削除
+  async deleteMealRecord(id: string): Promise<void> {
+    try {
+      const records = await this.getMealRecords();
+      const filteredRecords = records.filter(record => record.id !== id);
+      await AsyncStorage.setItem('mealRecords', JSON.stringify(filteredRecords));
+    } catch (error) {
+      console.error('Error deleting meal record:', error);
+      throw error;
+    }
+  },
+
+  // 週間統計取得
+  async getWeeklyStats(): Promise<{
+    averageScore: number;
+    totalMeals: number;
+    categoryScores: { [key: string]: number };
+  }> {
+    try {
+      const records = await this.getMealRecords();
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      const weeklyRecords = records.filter(
+        record => new Date(record.taken_at) >= oneWeekAgo
+      );
+      
+      if (weeklyRecords.length === 0) {
+        return { averageScore: 0, totalMeals: 0, categoryScores: {} };
+      }
+      
+      const totalScore = weeklyRecords.reduce((sum, record) => sum + (record.analysisResult?.beauty_score?.overall || 0), 0);
+      const averageScore = Math.round(totalScore / weeklyRecords.length);
+      
+      // カテゴリー別スコア計算（解析結果がある場合）
+      const categoryScores: { [key: string]: number } = {};
+      const categoryNames = ['skin_care', 'anti_aging', 'detox', 'circulation', 'hair_nails'];
+      
+      categoryNames.forEach(category => {
+        const scores = weeklyRecords
+          .filter(record => record.analysisResult?.beauty_score?.[category])
+          .map(record => record.analysisResult.beauty_score[category]);
+        
+        if (scores.length > 0) {
+          categoryScores[category] = Math.round(
+            scores.reduce((sum, score) => sum + score, 0) / scores.length
+          );
+        }
+      });
+      
+      return {
+        averageScore,
+        totalMeals: weeklyRecords.length,
+        categoryScores,
+      };
+    } catch (error) {
+      console.error('Error getting weekly stats:', error);
+      return { averageScore: 0, totalMeals: 0, categoryScores: {} };
+    }
+  },
+};
+
+// 美容カテゴリーの定義
+export const BEAUTY_CATEGORIES = [
+  { id: 'skin_care', name: '美肌', icon: '✨', description: 'ハリ・ツヤ・透明感' },
+  { id: 'anti_aging', name: 'アンチエイジング', icon: '🌟', description: '細胞レベルでの老化防止' },
+  { id: 'detox', name: 'デトックス', icon: '🌿', description: '体内浄化・代謝促進' },
+  { id: 'circulation', name: '血行促進', icon: '💓', description: '血流改善・冷え性対策' },
+  { id: 'hair_nails', name: '髪・爪の健康', icon: '💇‍♀️', description: 'ケラチン生成・毛髪成長' },
+];
+
+// 美意識レベルの定義
+export const BEAUTY_LEVELS = [
+  { 
+    id: 'beginner', 
+    name: '初心者', 
+    description: '美容に興味を持ち始めた方',
+    detail: 'わかりやすく基本的な栄養知識をお伝えします'
+  },
+  { 
+    id: 'intermediate', 
+    name: '中級者', 
+    description: '美容知識をある程度お持ちの方',
+    detail: '栄養素の働きと美容効果の関連を詳しく説明します'
+  },
+  { 
+    id: 'advanced', 
+    name: '上級者', 
+    description: '美容・栄養学に詳しい方',
+    detail: '生化学的メカニズムまで含む詳細な解説をします'
+  },
+];
+
+export default { UserProfileService, MealService }; 

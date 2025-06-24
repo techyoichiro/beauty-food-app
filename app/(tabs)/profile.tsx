@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Sparkles, Target } from 'lucide-react-native';
 import PremiumModal from '@/components/PremiumModal';
+import { UserProfileService, BEAUTY_CATEGORIES, BEAUTY_LEVELS, ExtendedUserProfile } from '../../lib/meal-service';
 
 const beautyCategories = [
   { id: 'skin', label: '美肌', selected: true },
@@ -28,20 +29,136 @@ const beautyLevels = [
 ];
 
 export default function ProfileScreen() {
-  const [isNotificationEnabled, setIsNotificationEnabled] = useState(true);
-  const [selectedBeautyLevel, setSelectedBeautyLevel] = useState('intermediate');
-  const [selectedCategories, setSelectedCategories] = useState(beautyCategories);
+  const [userProfile, setUserProfile] = useState<ExtendedUserProfile | null>(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [weeklyGoalScore, setWeeklyGoalScore] = useState(80);
-  const [dailyMealCount, setDailyMealCount] = useState(3);
+  const [loading, setLoading] = useState(true);
   const isFreePlan = true;
 
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const profile = await UserProfileService.getProfile();
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('プロフィール読み込みエラー:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateBeautyCategories = async (categories: string[]) => {
+    try {
+      await UserProfileService.updateBeautyCategories(categories);
+      if (userProfile) {
+        setUserProfile({ ...userProfile, beautyCategories: categories });
+      }
+      Alert.alert('完了', '美容目標を更新しました');
+    } catch (error) {
+      Alert.alert('エラー', '設定の保存に失敗しました');
+    }
+  };
+
+  const updateBeautyLevel = async (level: 'beginner' | 'intermediate' | 'advanced') => {
+    try {
+      await UserProfileService.updateBeautyLevel(level);
+      if (userProfile) {
+        setUserProfile({ ...userProfile, beautyLevel: level });
+      }
+      Alert.alert('完了', '美意識レベルを更新しました');
+    } catch (error) {
+      Alert.alert('エラー', '設定の保存に失敗しました');
+    }
+  };
+
   const toggleCategory = (categoryId: string) => {
-    setSelectedCategories(prev =>
-      prev.map(cat =>
-        cat.id === categoryId ? { ...cat, selected: !cat.selected } : cat
-      )
-    );
+    if (!userProfile) return;
+    
+    const currentCategories = userProfile.beautyCategories;
+    let newCategories: string[];
+    
+    if (currentCategories.includes(categoryId)) {
+      // 最低1つは選択されている必要がある
+      if (currentCategories.length === 1) {
+        Alert.alert('注意', '最低1つの美容目標を選択してください');
+        return;
+      }
+      newCategories = currentCategories.filter(id => id !== categoryId);
+    } else {
+      newCategories = [...currentCategories, categoryId];
+    }
+    
+    updateBeautyCategories(newCategories);
+  };
+
+  const handleNotificationToggle = async (enabled: boolean) => {
+    try {
+      if (userProfile) {
+        const newNotifications = { ...userProfile.notifications, meal: enabled };
+        await UserProfileService.updateNotifications(newNotifications);
+        setUserProfile({ ...userProfile, notifications: newNotifications });
+      }
+    } catch (error) {
+      Alert.alert('エラー', '通知設定の更新に失敗しました');
+    }
+  };
+
+  const handleGoalEdit = async (type: 'score' | 'meals') => {
+    if (!userProfile) return;
+    
+    if (type === 'score') {
+      Alert.prompt(
+        '週間目標スコア設定',
+        '目標とする週間平均スコアを入力してください（60-100点）',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          {
+            text: '設定',
+            onPress: async (value) => {
+              const score = parseInt(value || '80');
+              if (score >= 60 && score <= 100) {
+                try {
+                  await UserProfileService.updateBeautyGoals(score, userProfile.dailyMealGoal);
+                  setUserProfile({ ...userProfile, weeklyGoalScore: score });
+                  Alert.alert('完了', `週間目標スコアを${score}点に設定しました。`);
+                } catch (error) {
+                  Alert.alert('エラー', '設定の保存に失敗しました');
+                }
+              } else {
+                Alert.alert('エラー', '60点から100点の間で入力してください。');
+              }
+            }
+          }
+        ],
+        'plain-text',
+        userProfile.weeklyGoalScore.toString()
+      );
+    } else {
+      Alert.alert(
+        '1日の食事回数設定',
+        '1日の目標食事回数を選択してください',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: '2回', onPress: () => updateMealGoal(2) },
+          { text: '3回', onPress: () => updateMealGoal(3) },
+          { text: '4回', onPress: () => updateMealGoal(4) },
+        ]
+      );
+    }
+  };
+
+  const updateMealGoal = async (count: number) => {
+    if (!userProfile) return;
+    
+    try {
+      await UserProfileService.updateBeautyGoals(userProfile.weeklyGoalScore, count);
+      setUserProfile({ ...userProfile, dailyMealGoal: count });
+      Alert.alert('完了', `1日の食事回数を${count}回に設定しました。`);
+    } catch (error) {
+      Alert.alert('エラー', '設定の保存に失敗しました');
+    }
   };
 
   const handleLogout = () => {
@@ -63,53 +180,15 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleGoalEdit = (type: 'score' | 'meals') => {
-    if (type === 'score') {
-      Alert.prompt(
-        '週間目標スコア設定',
-        '目標とする週間平均スコアを入力してください（60-100点）',
-        [
-          { text: 'キャンセル', style: 'cancel' },
-          {
-            text: '設定',
-            onPress: (value) => {
-              const score = parseInt(value || '80');
-              if (score >= 60 && score <= 100) {
-                setWeeklyGoalScore(score);
-                Alert.alert('完了', `週間目標スコアを${score}点に設定しました。`);
-              } else {
-                Alert.alert('エラー', '60点から100点の間で入力してください。');
-              }
-            }
-          }
-        ],
-        'plain-text',
-        weeklyGoalScore.toString()
-      );
-    } else {
-      Alert.alert(
-        '1日の食事回数設定',
-        '1日の目標食事回数を選択してください',
-        [
-          { text: 'キャンセル', style: 'cancel' },
-          { text: '2回', onPress: () => {
-            setDailyMealCount(2);
-            Alert.alert('完了', '1日の食事回数を2回に設定しました。');
-          }},
-          { text: '3回', onPress: () => {
-            setDailyMealCount(3);
-            Alert.alert('完了', '1日の食事回数を3回に設定しました。');
-          }},
-          { text: '4回', onPress: () => {
-            setDailyMealCount(4);
-            Alert.alert('完了', '1日の食事回数を4回に設定しました。');
-          }},
-        ]
-      );
-    }
-  };
-
-
+  if (loading || !userProfile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>読み込み中...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -202,7 +281,7 @@ export default function ProfileScreen() {
             >
               <Text style={styles.goalLabel}>週間目標スコア</Text>
               <View style={styles.goalValueContainer}>
-                <Text style={styles.goalValue}>{weeklyGoalScore}点以上</Text>
+                <Text style={styles.goalValue}>{userProfile.weeklyGoalScore}点以上</Text>
                 <ChevronRight size={16} color="#999" />
               </View>
             </TouchableOpacity>
@@ -212,7 +291,7 @@ export default function ProfileScreen() {
             >
               <Text style={styles.goalLabel}>1日の食事回数</Text>
               <View style={styles.goalValueContainer}>
-                <Text style={styles.goalValue}>{dailyMealCount}回</Text>
+                <Text style={styles.goalValue}>{userProfile.dailyMealGoal}回</Text>
                 <ChevronRight size={16} color="#999" />
               </View>
             </TouchableOpacity>
@@ -226,18 +305,18 @@ export default function ProfileScreen() {
             <Text style={styles.sectionTitle}>美容カテゴリー設定</Text>
           </View>
           <View style={styles.categoriesContainer}>
-            {selectedCategories.map((category) => (
+            {beautyCategories.map((category) => (
               <TouchableOpacity
                 key={category.id}
                 style={[
                   styles.categoryChip,
-                  category.selected && styles.categoryChipSelected
+                  userProfile.beautyCategories.includes(category.id) && styles.categoryChipSelected
                 ]}
                 onPress={() => toggleCategory(category.id)}
               >
                 <Text style={[
                   styles.categoryChipText,
-                  category.selected && styles.categoryChipTextSelected
+                  userProfile.beautyCategories.includes(category.id) && styles.categoryChipTextSelected
                 ]}>
                   {category.label}
                 </Text>
@@ -257,14 +336,14 @@ export default function ProfileScreen() {
               key={level.id}
               style={[
                 styles.levelOption,
-                selectedBeautyLevel === level.id && styles.levelOptionSelected
+                userProfile.beautyLevel === level.id && styles.levelOptionSelected
               ]}
-              onPress={() => setSelectedBeautyLevel(level.id)}
+                             onPress={() => updateBeautyLevel(level.id as 'beginner' | 'intermediate' | 'advanced')}
             >
               <View style={styles.levelInfo}>
                 <Text style={[
                   styles.levelLabel,
-                  selectedBeautyLevel === level.id && styles.levelLabelSelected
+                  userProfile.beautyLevel === level.id && styles.levelLabelSelected
                 ]}>
                   {level.label}
                 </Text>
@@ -272,7 +351,7 @@ export default function ProfileScreen() {
               </View>
               <View style={[
                 styles.radioButton,
-                selectedBeautyLevel === level.id && styles.radioButtonSelected
+                userProfile.beautyLevel === level.id && styles.radioButtonSelected
               ]} />
             </TouchableOpacity>
           ))}
@@ -289,10 +368,10 @@ export default function ProfileScreen() {
             <Bell size={20} color="#6b7280" />
             <Text style={styles.settingLabel}>プッシュ通知</Text>
             <Switch
-              value={isNotificationEnabled}
-              onValueChange={setIsNotificationEnabled}
+              value={userProfile.notifications.meal}
+              onValueChange={handleNotificationToggle}
               trackColor={{ false: '#f3f4f6', true: '#fce7f3' }}
-              thumbColor={isNotificationEnabled ? '#ec4899' : '#9ca3af'}
+              thumbColor={userProfile.notifications.meal ? '#ec4899' : '#9ca3af'}
             />
           </View>
 
@@ -641,5 +720,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-Bold',
+    color: '#1f2937',
   },
 });

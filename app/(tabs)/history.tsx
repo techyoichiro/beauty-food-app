@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,141 +13,228 @@ import { Calendar, TrendingUp, ChartBar as BarChart3, Crown } from 'lucide-react
 
 import { router } from 'expo-router';
 import { FoodAnalysisResult } from '../../lib/food-analysis';
+import { UserProfileService, ExtendedUserProfile } from '../../lib/meal-service';
 
 const { width } = Dimensions.get('window');
 
-// ダミーの解析結果データ
-const createDummyAnalysisResult = (score: number): FoodAnalysisResult => ({
-  detected_foods: [
-    {
-      name: score >= 85 ? "鮭の塩焼き" : score >= 75 ? "チキンサラダ" : "ハンバーガー",
-      category: "protein",
-      estimated_amount: "100g",
-      confidence: 0.92
+// 美容カテゴリー別のアドバイス生成
+const generateCategoryAdvice = (score: number, categories: string[]) => {
+  const adviceMap = {
+    skin_care: {
+      high: "レモンを絞ってビタミンCをプラス！鮭のアスタキサンチンとの相乗効果で美肌力アップ",
+      medium: "トマトを追加してリコピンを摂取しましょう。コラーゲン生成を促進します",
+      low: "ビタミンCが豊富な食材を追加して美肌効果を高めましょう"
     },
-    {
-      name: score >= 85 ? "キノコとブロッコリーの炒め物" : score >= 75 ? "アボカドサラダ" : "フライドポテト",
-      category: "vegetable",
-      estimated_amount: "80g",
-      confidence: 0.88
+    anti_aging: {
+      high: "緑茶と一緒に摂取すると抗酸化作用が倍増！カテキンが活性酸素を除去します",
+      medium: "ナッツ類を追加してビタミンEを補給し、細胞の老化を防ぎましょう",
+      low: "抗酸化物質が豊富な食材を取り入れて老化防止効果を高めましょう"
     },
-    {
-      name: "玄米",
-      category: "carb",
-      estimated_amount: "150g",
-      confidence: 0.85
+    detox: {
+      high: "食後に白湯を飲んで代謝アップ！消化を助けて老廃物の排出を促進",
+      medium: "食物繊維を増やして腸内環境を改善しましょう",
+      low: "デトックス効果のある食材を増やして体内浄化を促進しましょう"
+    },
+    circulation: {
+      high: "生姜をすりおろして追加！体を温めて血流改善効果を高めます",
+      medium: "鉄分豊富な食材を追加して血行を促進しましょう",
+      low: "血行促進効果のある食材を取り入れて冷え性を改善しましょう"
+    },
+    hair_nails: {
+      high: "ごまをふりかけて亜鉛とビオチンをプラス！髪の成長に必要な栄養素です",
+      medium: "タンパク質を強化して髪と爪の材料を補給しましょう",
+      low: "髪と爪の健康に必要な栄養素を意識的に摂取しましょう"
     }
-  ],
-     nutrition_analysis: {
-     calories: score >= 85 ? 420 : score >= 75 ? 380 : 650,
-     protein: score >= 85 ? 28 : score >= 75 ? 25 : 22,
-     carbohydrates: score >= 85 ? 45 : score >= 75 ? 42 : 58,
-     fat: score >= 85 ? 12 : score >= 75 ? 15 : 35,
-     fiber: score >= 85 ? 8 : score >= 75 ? 6 : 3,
-     vitamins: {
-       vitamin_c: score >= 85 ? 80 : score >= 75 ? 60 : 40,
-       vitamin_e: score >= 85 ? 70 : score >= 75 ? 50 : 30,
-       vitamin_a: score >= 85 ? 75 : score >= 75 ? 55 : 35,
-       vitamin_b_complex: score >= 85 ? 85 : score >= 75 ? 65 : 45
-     },
-     minerals: {
-       iron: score >= 85 ? 15 : score >= 75 ? 12 : 8,
-       zinc: score >= 85 ? 10 : score >= 75 ? 8 : 5,
-       calcium: score >= 85 ? 120 : score >= 75 ? 100 : 80,
-       magnesium: score >= 85 ? 90 : score >= 75 ? 70 : 50
-     }
-   },
-  beauty_score: {
-    overall: score,
-    skin_care: score >= 85 ? 88 : score >= 75 ? 75 : 60,
-    anti_aging: score >= 85 ? 82 : score >= 75 ? 72 : 55,
-    detox: score >= 85 ? 85 : score >= 75 ? 70 : 50,
-    circulation: score >= 85 ? 80 : score >= 75 ? 68 : 45,
-    hair_nails: score >= 85 ? 78 : score >= 75 ? 65 : 50
-  },
-  immediate_advice: score >= 85 
-    ? "理想的なバランスの食事です。この調子で続けましょう。" 
-    : score >= 75 
-    ? "良いバランスですが、もう少し野菜を増やすとさらに良くなります。"
-    : "タンパク質と野菜を増やし、揚げ物を控えめにしましょう。",
-  next_meal_advice: score >= 85
-    ? "次の食事でも同様に、タンパク質・野菜・炭水化物のバランスを意識してください。"
-    : score >= 75
-    ? "次の食事では、色とりどりの野菜を多めに摂取することを心がけましょう。"
-    : "次の食事では、蒸し料理や焼き料理を選び、野菜を中心とした献立にしましょう。",
-  beauty_benefits: score >= 85
-    ? ["肌のハリと弾力向上", "抗酸化作用による老化防止", "血行促進効果"]
-    : score >= 75
-    ? ["肌の保湿力向上", "デトックス効果"]
-    : ["基本的な栄養補給"]
-});
+  };
 
-const historyData = [
-  {
-    date: '2024/01/15',
-    meals: [
-      {
-        id: 1,
-        type: '朝食',
-        time: '8:30',
-        image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=300',
-        score: 85,
-        advice: '野菜の摂取量が理想的です',
-        analysisResult: createDummyAnalysisResult(85)
-      },
-      {
-        id: 2,
-        type: '昼食',
-        time: '12:45',
-        image: 'https://images.pexels.com/photos/1640773/pexels-photo-1640773.jpeg?auto=compress&cs=tinysrgb&w=300',
-        score: 72,
-        advice: 'タンパク質をもう少し追加しましょう',
-        analysisResult: createDummyAnalysisResult(72)
-      },
-      {
-        id: 3,
-        type: '夕食',
-        time: '19:15',
-        image: 'https://images.pexels.com/photos/1640772/pexels-photo-1640772.jpeg?auto=compress&cs=tinysrgb&w=300',
-        score: 90,
-        advice: 'バランスの取れた理想的な食事です',
-        analysisResult: createDummyAnalysisResult(90)
-      },
-    ],
-    averageScore: 82,
-  },
-  {
-    date: '2024/01/14',
-    meals: [
-      {
-        id: 4,
-        type: '朝食',
-        time: '9:00',
-        image: 'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&w=300',
-        score: 78,
-        advice: 'フルーツを追加すると更に良いでしょう',
-        analysisResult: createDummyAnalysisResult(78)
-      },
-      {
-        id: 5,
-        type: '昼食',
-        time: '13:20',
-        image: 'https://images.pexels.com/photos/1640775/pexels-photo-1640775.jpeg?auto=compress&cs=tinysrgb&w=300',
-        score: 68,
-        advice: '野菜を増やしましょう',
-        analysisResult: createDummyAnalysisResult(68)
-      },
-    ],
-    averageScore: 73,
-  },
-];
+  const level = score >= 85 ? 'high' : score >= 75 ? 'medium' : 'low';
+  const primaryCategory = categories[0] || 'skin_care';
+  
+  return adviceMap[primaryCategory as keyof typeof adviceMap]?.[level] || 
+         "バランスの良い食事を心がけましょう";
+};
 
-const weeklyScores = [65, 72, 78, 82, 85, 79, 88];
-const days = ['月', '火', '水', '木', '金', '土', '日'];
+// ダミーの解析結果データ（ユーザープロフィール対応）
+const createDummyAnalysisResult = (score: number, userProfile: ExtendedUserProfile): FoodAnalysisResult => {
+  const advice = generateCategoryAdvice(score, userProfile.beautyCategories);
+  
+  return {
+    detected_foods: [
+      {
+        name: score >= 85 ? "鮭の塩焼き" : score >= 75 ? "チキンサラダ" : "ハンバーガー",
+        category: "protein",
+        estimated_amount: "100g",
+        confidence: 0.92
+      },
+      {
+        name: score >= 85 ? "キノコとブロッコリーの炒め物" : score >= 75 ? "アボカドサラダ" : "フライドポテト",
+        category: "vegetable",
+        estimated_amount: "80g",
+        confidence: 0.88
+      },
+      {
+        name: "玄米",
+        category: "carb",
+        estimated_amount: "150g",
+        confidence: 0.85
+      }
+    ],
+    nutrition_analysis: {
+      calories: score >= 85 ? 420 : score >= 75 ? 380 : 650,
+      protein: score >= 85 ? 28 : score >= 75 ? 25 : 22,
+      carbohydrates: score >= 85 ? 45 : score >= 75 ? 42 : 58,
+      fat: score >= 85 ? 12 : score >= 75 ? 15 : 35,
+      fiber: score >= 85 ? 8 : score >= 75 ? 6 : 3,
+      vitamins: {
+        vitamin_c: score >= 85 ? 80 : score >= 75 ? 60 : 40,
+        vitamin_e: score >= 85 ? 70 : score >= 75 ? 50 : 30,
+        vitamin_a: score >= 85 ? 75 : score >= 75 ? 55 : 35,
+        vitamin_b_complex: score >= 85 ? 85 : score >= 75 ? 65 : 45
+      },
+      minerals: {
+        iron: score >= 85 ? 15 : score >= 75 ? 12 : 8,
+        zinc: score >= 85 ? 10 : score >= 75 ? 8 : 5,
+        calcium: score >= 85 ? 120 : score >= 75 ? 100 : 80,
+        magnesium: score >= 85 ? 90 : score >= 75 ? 70 : 50
+      }
+    },
+    beauty_score: {
+      overall: score,
+      skin_care: score >= 85 ? 88 : score >= 75 ? 75 : 60,
+      anti_aging: score >= 85 ? 82 : score >= 75 ? 72 : 55,
+      detox: score >= 85 ? 85 : score >= 75 ? 70 : 50,
+      circulation: score >= 85 ? 80 : score >= 75 ? 68 : 45,
+      hair_nails: score >= 85 ? 78 : score >= 75 ? 65 : 50
+    },
+    immediate_advice: advice,
+    next_meal_advice: score >= 85
+      ? `次の食事でも${userProfile.beautyCategories.map(cat => 
+          cat === 'skin_care' ? '美肌' : 
+          cat === 'anti_aging' ? 'アンチエイジング' : 
+          cat === 'detox' ? 'デトックス' : 
+          cat === 'circulation' ? '血行促進' : '髪・爪の健康'
+        ).join('・')}を意識した食材選びを続けましょう。`
+      : `次の食事では、${userProfile.beautyCategories.map(cat => 
+          cat === 'skin_care' ? '美肌効果の高い' : 
+          cat === 'anti_aging' ? '抗酸化作用のある' : 
+          cat === 'detox' ? 'デトックス効果のある' : 
+          cat === 'circulation' ? '血行促進効果のある' : '髪・爪に良い'
+        ).join('・')}食材を意識的に取り入れましょう。`,
+    beauty_benefits: score >= 85
+      ? userProfile.beautyCategories.map(cat => 
+          cat === 'skin_care' ? '肌のハリと弾力向上' : 
+          cat === 'anti_aging' ? '抗酸化作用による老化防止' : 
+          cat === 'detox' ? '体内浄化・代謝促進' : 
+          cat === 'circulation' ? '血行促進・冷え性改善' : '髪・爪の健康促進'
+        )
+      : userProfile.beautyCategories.map(cat => 
+          cat === 'skin_care' ? '基本的な美肌効果' : 
+          cat === 'anti_aging' ? '軽度の老化防止効果' : 
+          cat === 'detox' ? '軽度のデトックス効果' : 
+          cat === 'circulation' ? '軽度の血行改善' : '基本的な髪・爪ケア'
+        )
+  };
+};
 
 export default function HistoryScreen() {
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily');
+  const [userProfile, setUserProfile] = useState<ExtendedUserProfile | null>(null);
   const isFreePlan = true;
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await UserProfileService.getProfile();
+        setUserProfile(profile);
+      } catch (error) {
+        console.error('ユーザープロフィール取得エラー:', error);
+        // デフォルトプロフィールを設定
+        setUserProfile({
+          beautyCategories: ['skin_care'],
+          beautyLevel: 'intermediate',
+          weeklyGoalScore: 70,
+          dailyMealGoal: 3,
+          notifications: { meal: true, analysis: true, weekly: true }
+        });
+      }
+    };
+    loadUserProfile();
+  }, []);
+
+  // プロフィールが読み込まれていない場合のローディング
+  if (!userProfile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>読み込み中...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ユーザープロフィールを使用してダミーデータを生成
+  const historyData = [
+    {
+      date: '2024/01/15',
+      meals: [
+        {
+          id: 1,
+          type: '朝食',
+          time: '8:30',
+          image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=300',
+          score: 85,
+          advice: '野菜の摂取量が理想的です',
+          analysisResult: createDummyAnalysisResult(85, userProfile)
+        },
+        {
+          id: 2,
+          type: '昼食',
+          time: '12:45',
+          image: 'https://images.pexels.com/photos/1640773/pexels-photo-1640773.jpeg?auto=compress&cs=tinysrgb&w=300',
+          score: 72,
+          advice: 'タンパク質をもう少し追加しましょう',
+          analysisResult: createDummyAnalysisResult(72, userProfile)
+        },
+        {
+          id: 3,
+          type: '夕食',
+          time: '19:15',
+          image: 'https://images.pexels.com/photos/1640772/pexels-photo-1640772.jpeg?auto=compress&cs=tinysrgb&w=300',
+          score: 90,
+          advice: 'バランスの取れた理想的な食事です',
+          analysisResult: createDummyAnalysisResult(90, userProfile)
+        },
+      ],
+      averageScore: 82,
+    },
+    {
+      date: '2024/01/14',
+      meals: [
+        {
+          id: 4,
+          type: '朝食',
+          time: '9:00',
+          image: 'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&w=300',
+          score: 78,
+          advice: 'フルーツを追加すると更に良いでしょう',
+          analysisResult: createDummyAnalysisResult(78, userProfile)
+        },
+        {
+          id: 5,
+          type: '昼食',
+          time: '13:20',
+          image: 'https://images.pexels.com/photos/1640775/pexels-photo-1640775.jpeg?auto=compress&cs=tinysrgb&w=300',
+          score: 68,
+          advice: '野菜を増やしましょう',
+          analysisResult: createDummyAnalysisResult(68, userProfile)
+        },
+      ],
+      averageScore: 73,
+    },
+  ];
+
+  const weeklyScores = [65, 72, 78, 82, 85, 79, 88];
+  const days = ['月', '火', '水', '木', '金', '土', '日'];
 
   const renderChart = () => {
     const maxScore = Math.max(...weeklyScores);
@@ -562,5 +649,15 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansJP-Regular',
     color: '#92400e',
     lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    fontFamily: 'NotoSansJP-Bold',
+    color: '#1f2937',
   },
 });
