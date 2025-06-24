@@ -23,9 +23,9 @@ const beautyCategories = [
 ];
 
 const beautyLevels = [
-  { id: 'beginner', label: '美容初心者', description: '基本的なアドバイスを重視' },
-  { id: 'intermediate', label: '美容好き', description: 'バランスの取れたアドバイス' },
-  { id: 'advanced', label: '美容マニア', description: '詳細で専門的なアドバイス' },
+  { id: 'beginner', label: 'ライトケア派', description: '気軽に美容を楽しみたい方におすすめ' },
+  { id: 'intermediate', label: 'バランス重視派', description: '美容と生活のバランスを大切にする方' },
+  { id: 'advanced', label: 'こだわり美容派', description: '美容への関心が高く、詳しい情報を求める方' },
 ];
 
 export default function ProfileScreen() {

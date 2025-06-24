@@ -500,21 +500,18 @@ export const BEAUTY_CATEGORIES = [
 export const BEAUTY_LEVELS = [
   { 
     id: 'beginner', 
-    name: '初心者', 
-    description: '美容に興味を持ち始めた方',
-    detail: 'わかりやすく基本的な栄養知識をお伝えします'
+    label: 'ライトケア派', 
+    description: '気軽に美容を楽しみたい方におすすめ' 
   },
   { 
     id: 'intermediate', 
-    name: '中級者', 
-    description: '美容知識をある程度お持ちの方',
-    detail: '栄養素の働きと美容効果の関連を詳しく説明します'
+    label: 'バランス重視派', 
+    description: '美容と生活のバランスを大切にする方' 
   },
   { 
     id: 'advanced', 
-    name: '上級者', 
-    description: '美容・栄養学に詳しい方',
-    detail: '生化学的メカニズムまで含む詳細な解説をします'
+    label: 'こだわり美容派', 
+    description: '美容への関心が高く、詳しい情報を求める方' 
   },
 ];
 
