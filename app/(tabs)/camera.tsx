@@ -139,7 +139,10 @@ export default function CameraScreen() {
     try {
       setIsAnalyzing(true);
       
-      const result = await analyzeFoodImage(imageUri, isPremium);
+      // ユーザープロファイルを取得
+      const userProfile = await UserProfileService.getProfile();
+      
+      const result = await analyzeFoodImage(imageUri, isPremium, userProfile);
       
       // 結果画面に遷移
       router.push({
@@ -223,7 +226,8 @@ export default function CameraScreen() {
         capturedImage,
         mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
         userId,
-        userProfile
+        userProfile,
+        isPremium
       );
 
       // 解析結果画面に遷移

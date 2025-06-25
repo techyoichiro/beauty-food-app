@@ -25,10 +25,6 @@ const SLACK_WEBHOOK_URL =
 if (!SLACK_WEBHOOK_URL) {
   console.warn('⚠️ SLACK_WEBHOOK_URL が設定されていません');
   console.warn('環境変数 SLACK_WEBHOOK_URL を設定してください');
-} else {
-  console.log('✅ Slack Webhook URL が設定されています');
-  // セキュリティのため、URLの一部のみ表示
-  console.log('URL:', SLACK_WEBHOOK_URL.substring(0, 30) + '...');
 }
 
 export interface SlackMessage {

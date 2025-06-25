@@ -197,7 +197,8 @@ export const processMealAnalysis = async (
   imageUri: string,
   mealTiming: 'breakfast' | 'lunch' | 'dinner' | 'snack',
   userId: string,
-  userProfile: UserProfile
+  userProfile: UserProfile,
+  isPremium: boolean = false
 ): Promise<{
   mealRecord: MealRecord;
   analysisResult: any;
@@ -265,7 +266,7 @@ export const processMealAnalysis = async (
     console.log('AI解析開始:', mealRecord.id);
     
     // Step 7: AI解析を実行（元の画像URIを使用）
-    const analysisResult = await analyzeFoodImage(imageUri, false); // TODO: isPremiumフラグを適切に渡す
+    const analysisResult = await analyzeFoodImage(imageUri, isPremium, userProfile); // プレミアム状態とユーザープロファイルを渡す
     
     // Step 8: 解析結果を保存（この中でステータスが'completed'に更新される）
     await saveAnalysisResult(

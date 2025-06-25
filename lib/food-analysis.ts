@@ -158,7 +158,11 @@ const getAnalysisConfig = (isPremium: boolean): AnalysisConfig => {
 };
 
 // OpenAI APIで食事を解析
-export const analyzeFoodImage = async (imageUri: string, isPremium: boolean = false): Promise<FoodAnalysisResult> => {
+export const analyzeFoodImage = async (
+  imageUri: string, 
+  isPremium: boolean = false,
+  userProfile?: UserProfile
+): Promise<FoodAnalysisResult> => {
   try {
     console.log('🍽️ 食事解析開始:', { isPremium, imageUri: imageUri.substring(0, 50) + '...' });
     
@@ -188,8 +192,8 @@ export const analyzeFoodImage = async (imageUri: string, isPremium: boolean = fa
             { 
               type: "text", 
               text: createFoodAnalysisPrompt({
-                beautyCategories: ['skin_care'],
-                beautyLevel: 'intermediate'
+                beautyCategories: userProfile?.beautyCategories || ['skin_care'],
+                beautyLevel: userProfile?.beautyLevel || 'intermediate'
               }) 
             },
             { 
