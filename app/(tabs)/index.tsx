@@ -36,7 +36,10 @@ export default function HomeScreen() {
         }
       </Text>
       
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity 
+        style={styles.button}
+        onPress={() => router.push('/(tabs)/camera')}
+      >
         <Text style={styles.buttonText}>写真を撮る</Text>
       </TouchableOpacity>
 

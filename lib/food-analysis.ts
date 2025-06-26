@@ -5,7 +5,7 @@ import { supabase } from './supabase';
 // 型定義
 export interface DetectedFood {
   name: string;
-  category: 'protein' | 'carb' | 'vegetable' | 'fruit' | 'fat' | 'other';
+  category: 'protein' | 'carb' | 'vegetable' | 'fruit' | 'fat' | 'spice' | 'sauce' | 'other';
   estimated_amount: string;
   confidence: number;
 }
@@ -139,20 +139,20 @@ interface AnalysisConfig {
 // ユーザータイプ別の品質設定
 const getAnalysisConfig = (isPremium: boolean): AnalysisConfig => {
   if (isPremium) {
-    // 課金ユーザー: 最高品質
+    // 課金ユーザー: 最高品質・詳細分析
     return {
-      imageQuality: 0.8,        // 高品質（80%）
+      imageQuality: 0.9,        // 最高品質（90%）
       imageDetail: 'high',      // 高解像度解析
-      model: 'gpt-4o',          // 最新・最高性能モデル
-      maxImageSize: 1024        // 大きなサイズ
+      model: 'gpt-4o',          // 最新・最高性能モデル（詳細食材検出に優秀）
+      maxImageSize: 1536        // 大きなサイズ（詳細分析のため）
     };
   } else {
     // 無料ユーザー: 良品質（課金への誘導品質）
     return {
-      imageQuality: 0.65,       // 中高品質（65%）- 十分良いが課金で更に向上
+      imageQuality: 0.7,        // 良品質（70%）- 改善された品質
       imageDetail: 'low',       // 低解像度（コスト削減）
       model: 'gpt-4o-mini',     // コスト効率の良いモデル
-      maxImageSize: 512         // 適度なサイズ
+      maxImageSize: 768         // 適度なサイズ（品質向上のため増加）
     };
   }
 };

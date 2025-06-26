@@ -92,7 +92,17 @@ export const createFoodAnalysisPrompt = (userProfile: {
   const categoryInfo = generateCategorySpecificAdvice(userProfile.beautyCategories, userProfile.beautyLevel);
   
   return `
-この食事画像を分析して、以下のJSON形式で回答してください。
+この食事画像を詳細に分析して、以下のJSON形式で回答してください。
+
+【食材検出の重要指針】
+1. 具体的な食材名を特定してください（例：「魚」→「サバ」「鮭」「マグロ」など）
+2. 野菜は種類を詳しく分析してください（例：「野菜」→「玉ねぎ」「人参」「ピーマン」など）
+3. 調理法や料理名も考慮してください（例：「カレー」「炒め物」「煮物」など）
+4. 香辛料やソース、調味料も可能な限り検出してください
+5. 部分的に見える食材も推測して含めてください
+6. 信頼度は控えめに設定し、不確実な場合は0.6-0.8程度にしてください
+7. 料理の文化的背景を考慮してください（例：スリランカカレー、タイ料理、イタリア料理など）
+8. 典型的な組み合わせの食材も推測して含めてください（例：カレーならココナッツミルク、ガラムマサラなど）
 
 ユーザープロフィール:
 - 美容目標: ${categoryInfo.categoryNames}
@@ -109,10 +119,10 @@ export const createFoodAnalysisPrompt = (userProfile: {
 {
   "detected_foods": [
     {
-      "name": "食材名（日本語）",
-      "category": "protein|carb|vegetable|fruit|fat|other",
-      "estimated_amount": "推定量（例：100g、1個）",
-      "confidence": 0.95
+      "name": "具体的な食材名（例：鮭の切り身、玉ねぎ、ココナッツミルク、ターメリック等）",
+      "category": "protein|carb|vegetable|fruit|fat|spice|sauce|other",
+      "estimated_amount": "推定量（例：100g、1個、大さじ1）",
+      "confidence": 0.75
     }
   ],
   "nutrition_analysis": {
@@ -172,6 +182,15 @@ export const createFoodAnalysisPrompt = (userProfile: {
 - immediate_advice: "ごまをふりかけて亜鉛とビオチンをプラス！髪の成長に必要な栄養素です"
 - next_meal_advice: "卵料理を追加してタンパク質強化。髪と爪の主成分ケラチンの材料です"
 
+【食材検出の具体例】
+カレー料理の場合:
+- ❌ 悪い例: "魚", "野菜", "ご飯", "スープ"
+- ✅ 良い例: "マグロの刺身", "玉ねぎ", "人参", "ピーマン", "ココナッツミルク", "ターメリック", "クミン", "コリアンダー", "ガラムマサラ", "バスマティライス", "カレールー"
+
+サラダの場合:
+- ❌ 悪い例: "野菜", "ドレッシング"
+- ✅ 良い例: "レタス", "トマト", "きゅうり", "アボカド", "オリーブオイル", "バルサミコ酢", "パルメザンチーズ", "クルトン"
+
 重要事項:
 - 有効なJSONオブジェクトのみを返してください
 - 日本語のテキストを含めてください
@@ -181,6 +200,7 @@ export const createFoodAnalysisPrompt = (userProfile: {
 - 説明レベルは「${categoryInfo.levelStyle}」に合わせてください
 - beauty_benefitsは「今回の食事を摂取することで期待できる具体的な美容効果」を記載してください
 - 美容効果は短期的（数時間〜数日）で実感できるものと中長期的（数週間〜数ヶ月）なものの両方を含めてください
+- 食材名は可能な限り具体的に特定してください（曖昧な「魚」「野菜」ではなく「サバ」「玉ねぎ」など）
 `;
 };
 
