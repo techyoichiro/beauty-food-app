@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,36 +7,39 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Crown, Check, Sparkles, TrendingUp, ChartBar as BarChart3, Calendar, Zap } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
+import { useAuth } from '@/contexts/AuthContext';
+import { PremiumPlan, PurchaseResult } from '@/lib/revenue-cat';
+import revenueCatService from '@/lib/revenue-cat';
 
 const { width } = Dimensions.get('window');
 
 interface PremiumModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubscribe: (planId: string) => void;
+  onSubscribe?: (planId: string) => void;
 }
 
-const plans = [
+// RevenueCatから取得するプランに置き換わるため、初期値として使用
+const defaultPlans = [
   {
-    id: 'monthly',
-    name: '月額プラン',
+    id: 'monthly_premium',
+    title: '月額プラン',
     price: '¥480',
     period: '/月',
-    originalPrice: null,
-    popular: false,
     savings: null,
   },
   {
-    id: 'yearly',
-    name: '年額プラン',
+    id: 'yearly_premium', 
+    title: '年額プラン',
     price: '¥4,800',
     period: '/年',
-    originalPrice: '¥5,760',
-    popular: true,
-    savings: '17%お得',
+    savings: '2ヶ月分お得！',
   },
 ];
 
@@ -68,11 +71,114 @@ const features = [
 ];
 
 export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumModalProps) {
-  const [selectedPlan, setSelectedPlan] = useState('yearly');
+  const { purchasePremium, restorePurchases, getAvailablePlans, premiumLoading } = useAuth();
+  const [selectedPlan, setSelectedPlan] = useState<string>('yearly_premium');
+  const [availablePlans, setAvailablePlans] = useState<PremiumPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
-  const handleSubscribe = () => {
-    onSubscribe(selectedPlan);
-    onClose();
+  // モーダルが開かれたときにプランを取得
+  useEffect(() => {
+    if (visible) {
+      loadAvailablePlans();
+    }
+  }, [visible]);
+
+  const loadAvailablePlans = async () => {
+    try {
+      setPlansLoading(true);
+      const plans = await getAvailablePlans();
+      setAvailablePlans(plans);
+      
+      // デフォルトの選択プランを設定
+      if (plans.length > 0) {
+        const yearlyPlan = plans.find(p => p.id.includes('yearly'));
+        setSelectedPlan(yearlyPlan?.id || plans[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load plans:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'プラン取得エラー',
+        text2: 'プラン情報の取得に失敗しました',
+      });
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    try {
+      const selectedPlanData = availablePlans.find(p => p.id === selectedPlan);
+      if (!selectedPlanData) {
+        Alert.alert('エラー', '選択されたプランが見つかりません');
+        return;
+      }
+
+      setPurchasing(true);
+      
+      const result: PurchaseResult = await purchasePremium(selectedPlanData);
+      
+      if (result.success) {
+        Toast.show({
+          type: 'success',
+          text1: '購入完了！',
+          text2: 'プレミアムプランへようこそ！',
+        });
+        
+        // コールバック実行（下位互換性のため）
+        if (onSubscribe) {
+          onSubscribe(selectedPlan);
+        }
+        
+        onClose();
+      } else if (result.userCancelled) {
+        // ユーザーキャンセルの場合は何もしない
+        console.log('Purchase cancelled by user');
+      } else {
+        // エラーの場合
+        const errorMessage = result.error ? revenueCatService.getErrorMessage(result.error) : '不明なエラーが発生しました';
+        Alert.alert('購入エラー', errorMessage);
+      }
+    } catch (error: any) {
+      console.error('Purchase error:', error);
+      Alert.alert('購入エラー', '購入処理中にエラーが発生しました');
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    try {
+      setRestoring(true);
+      
+      const result: PurchaseResult = await restorePurchases();
+      
+      if (result.success) {
+        const customerInfo = result.customerInfo;
+        const isPremium = customerInfo?.entitlements.active['premium']?.isActive;
+        
+        if (isPremium) {
+          Toast.show({
+            type: 'success',
+            text1: '復元完了！',
+            text2: 'プレミアムプランが復元されました',
+          });
+          onClose();
+        } else {
+          Alert.alert('復元結果', '復元可能な購入が見つかりませんでした');
+        }
+      } else {
+        const errorMessage = result.error ? revenueCatService.getErrorMessage(result.error) : '復元中にエラーが発生しました';
+        Alert.alert('復元エラー', errorMessage);
+      }
+    } catch (error: any) {
+      console.error('Restore error:', error);
+      Alert.alert('復元エラー', '復元処理中にエラーが発生しました');
+    } finally {
+      setRestoring(false);
+    }
   };
 
   return (
@@ -132,53 +238,70 @@ export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumM
           {/* Plans */}
           <View style={styles.plansSection}>
             <Text style={styles.plansTitle}>プランを選択</Text>
-            {plans.map((plan) => (
-              <TouchableOpacity
-                key={plan.id}
-                style={[
-                  styles.planCard,
-                  selectedPlan === plan.id && styles.planCardSelected,
-                  plan.popular && styles.planCardPopular,
-                ]}
-                onPress={() => setSelectedPlan(plan.id)}
-              >
-                {plan.popular && (
-                  <View style={styles.popularBadge}>
-                    <Sparkles size={12} color="white" />
-                    <Text style={styles.popularText}>人気</Text>
-                  </View>
-                )}
+            
+            {plansLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#ec4899" />
+                <Text style={styles.loadingText}>プランを読み込み中...</Text>
+              </View>
+            ) : availablePlans.length > 0 ? (
+              availablePlans.map((plan, index) => {
+                const isYearly = plan.id.includes('yearly');
+                const isPopular = isYearly;
                 
-                <View style={styles.planContent}>
-                  <View style={styles.planHeader}>
-                    <View style={styles.planInfo}>
-                      <Text style={styles.planName}>{plan.name}</Text>
-                      {plan.savings && (
-                        <Text style={styles.planSavings}>{plan.savings}</Text>
-                      )}
-                    </View>
-                    <View style={styles.planPricing}>
-                      {plan.originalPrice && (
-                        <Text style={styles.originalPrice}>{plan.originalPrice}</Text>
-                      )}
-                      <View style={styles.currentPrice}>
-                        <Text style={styles.planPrice}>{plan.price}</Text>
-                        <Text style={styles.planPeriod}>{plan.period}</Text>
+                return (
+                  <TouchableOpacity
+                    key={plan.id}
+                    style={[
+                      styles.planCard,
+                      selectedPlan === plan.id && styles.planCardSelected,
+                      isPopular && styles.planCardPopular,
+                    ]}
+                    onPress={() => setSelectedPlan(plan.id)}
+                  >
+                    {isPopular && (
+                      <View style={styles.popularBadge}>
+                        <Sparkles size={12} color="white" />
+                        <Text style={styles.popularText}>人気</Text>
+                      </View>
+                    )}
+                    
+                    <View style={styles.planContent}>
+                      <View style={styles.planHeader}>
+                        <View style={styles.planInfo}>
+                          <Text style={styles.planName}>{plan.title}</Text>
+                          {plan.savings && (
+                            <Text style={styles.planSavings}>{plan.savings}</Text>
+                          )}
+                        </View>
+                        <View style={styles.planPricing}>
+                          <View style={styles.currentPrice}>
+                            <Text style={styles.planPrice}>{plan.price}</Text>
+                            <Text style={styles.planPeriod}>{plan.period}</Text>
+                          </View>
+                        </View>
+                      </View>
+                      
+                      <View style={[
+                        styles.radioButton,
+                        selectedPlan === plan.id && styles.radioButtonSelected
+                      ]}>
+                        {selectedPlan === plan.id && (
+                          <Check size={16} color="white" />
+                        )}
                       </View>
                     </View>
-                  </View>
-                  
-                  <View style={[
-                    styles.radioButton,
-                    selectedPlan === plan.id && styles.radioButtonSelected
-                  ]}>
-                    {selectedPlan === plan.id && (
-                      <Check size={16} color="white" />
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>プランの読み込みに失敗しました</Text>
+                <TouchableOpacity onPress={loadAvailablePlans} style={styles.retryButton}>
+                  <Text style={styles.retryButtonText}>再試行</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {/* Terms */}
@@ -194,22 +317,40 @@ export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumM
 
         {/* Subscribe Button */}
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.subscribeButton} onPress={handleSubscribe}>
+          <TouchableOpacity 
+            style={[styles.subscribeButton, (purchasing || premiumLoading) && styles.subscribeButtonDisabled]} 
+            onPress={handleSubscribe}
+            disabled={purchasing || premiumLoading || availablePlans.length === 0}
+          >
             <LinearGradient
               colors={['#ec4899', '#f97316']}
               style={styles.subscribeGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Crown size={20} color="white" />
+              {purchasing ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Crown size={20} color="white" />
+              )}
               <Text style={styles.subscribeButtonText}>
-                {selectedPlan === 'monthly' ? '月額プランを開始' : '年額プランを開始'}
+                {purchasing ? '処理中...' : (
+                  selectedPlan.includes('monthly') ? '月額プランを開始' : '年額プランを開始'
+                )}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.restoreButton}>
-            <Text style={styles.restoreButtonText}>購入を復元</Text>
+          <TouchableOpacity 
+            style={styles.restoreButton} 
+            onPress={handleRestorePurchases}
+            disabled={restoring || premiumLoading}
+          >
+            {restoring ? (
+              <ActivityIndicator size="small" color="#6b7280" />
+            ) : (
+              <Text style={styles.restoreButtonText}>購入を復元</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -473,5 +614,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'NotoSansJP-Medium',
     color: '#6b7280',
+  },
+  // 新しいスタイル
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+    marginTop: 12,
+  },
+  errorContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#ef4444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Medium',
+    color: '#374151',
+  },
+  subscribeButtonDisabled: {
+    opacity: 0.6,
   },
 });
