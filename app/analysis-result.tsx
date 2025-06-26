@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, TrendingUp, Utensils, Lightbulb, HelpCircle } from 'lucide-react-native';
 import { FoodAnalysisResult, DetectedFood } from '../lib/food-analysis';
+import PremiumModal from '../components/PremiumModal';
 
 // 統合された解析結果型（FoodAnalysisResultに全て含まれるように修正）
 type AnalysisResult = FoodAnalysisResult;
@@ -25,6 +26,7 @@ export default function AnalysisResultScreen() {
   const [currentImageUri, setCurrentImageUri] = useState<string>('');
   const [currentIsPremium, setCurrentIsPremium] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   useEffect(() => {
     const loadAnalysisResult = async () => {
@@ -433,16 +435,10 @@ export default function AnalysisResultScreen() {
               
               {/* プレミアムアップグレード案内（無料ユーザーのみ） */}
               {isPremium !== 'true' && (
-                <TouchableOpacity style={styles.upgradeCard} onPress={() => {
-                  Alert.alert(
-                    '💎 プレミアムプランで更に詳しく',
-                    '• GPT-4oによる高精度解析\n• 高解像度画像認識\n• より詳細な栄養分析\n• 個別化されたアドバイス\n• 詳細レポート機能',
-                    [
-                      { text: 'キャンセル', style: 'cancel' },
-                      { text: 'プレミアムを見る', onPress: () => router.push('/(tabs)/profile' as any) }
-                    ]
-                  );
-                }}>
+                <TouchableOpacity 
+                  style={styles.upgradeCard} 
+                  onPress={() => setShowPremiumModal(true)}
+                >
                   <Text style={styles.upgradeTitle}>💎 プレミアムで更に詳しい解析</Text>
                   <Text style={styles.upgradeDescription}>
                     高精度AI・詳細レポート・個別化アドバイス
@@ -454,6 +450,22 @@ export default function AnalysisResultScreen() {
           )}
         </View>
       </LinearGradient>
+
+      {/* プレミアムモーダル */}
+      <PremiumModal
+        visible={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        onSubscribe={(planId: string) => {
+          console.log('プレミアムプラン選択:', planId);
+          // TODO: 実際のサブスクリプション処理を実装
+          Alert.alert(
+            'プレミアムプラン',
+            `${planId}プランが選択されました。\n\n実際の課金機能は開発中です。`,
+            [{ text: 'OK' }]
+          );
+          setShowPremiumModal(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
