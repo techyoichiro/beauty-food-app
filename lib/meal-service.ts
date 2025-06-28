@@ -22,6 +22,9 @@ export interface MealRecord {
   created_at: Date;
   updated_at: Date;
   analysisResult?: any;
+  signedImageUrl?: string; // 署名付きURL（オプショナル）
+  ai_analysis_results?: any[]; // データベースからの関連データ（オプショナル）
+  advice_records?: any[]; // データベースからの関連データ（オプショナル）
 }
 
 // プライベートStorageに画像をアップロード（ゲストユーザー対応）
@@ -313,7 +316,7 @@ export const getUserMealRecords = async (
   userId: string,
   limit: number = 10,
   offset: number = 0
-): Promise<(MealRecord & { signedImageUrl?: string })[]> => {
+): Promise<MealRecord[]> => {
   try {
     // まず、usersテーブルから実際のuser.idを取得
     const { data: userData, error: userError } = await supabase

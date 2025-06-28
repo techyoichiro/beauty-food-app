@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star } from 'lucide-react-native';
+import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star } from 'lucide-react-native';
 import { router } from 'expo-router';
 import PremiumModal from '@/components/PremiumModal';
 import { UserProfileService, BEAUTY_CATEGORIES, BEAUTY_LEVELS, ExtendedUserProfile } from '../../lib/meal-service';
@@ -37,7 +37,6 @@ export default function ProfileScreen() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const isFreePlan = true;
-  const { createUserRecord } = useAuth();
 
   useEffect(() => {
     loadUserProfile();
@@ -210,27 +209,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'ログアウト',
-      'ログアウトしますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: 'ログアウト', style: 'destructive', onPress: () => {} },
-      ]
-    );
-  };
 
-  // デバッグ用：ユーザーレコード作成
-  const handleCreateUserRecord = async () => {
-    try {
-      await createUserRecord();
-      Alert.alert('成功', 'ユーザーレコードが作成されました');
-    } catch (error) {
-      console.error('ユーザーレコード作成エラー:', error);
-      Alert.alert('エラー', 'ユーザーレコードの作成に失敗しました');
-    }
-  };
 
   const handleSubscribe = (planId: string) => {
     Alert.alert(
@@ -454,17 +433,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Debug: User Record Creation */}
-        <TouchableOpacity style={styles.debugButton} onPress={handleCreateUserRecord}>
-          <Settings size={20} color="#059669" />
-          <Text style={styles.debugText}>デバッグ: ユーザーレコード作成</Text>
-        </TouchableOpacity>
 
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <LogOut size={20} color="#dc2626" />
-          <Text style={styles.logoutText}>ログアウト</Text>
-        </TouchableOpacity>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>BeautyFood v1.0.0</Text>
@@ -690,48 +659,6 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansJP-Medium',
     color: '#1f2937',
     marginLeft: 12,
-  },
-  debugButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#dcfce7',
-    marginHorizontal: 20,
-    marginBottom: 10,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  debugText: {
-    fontSize: 16,
-    fontFamily: 'NotoSansJP-Medium',
-    color: '#059669',
-    marginLeft: 8,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logoutText: {
-    fontSize: 16,
-    fontFamily: 'NotoSansJP-SemiBold',
-    color: '#dc2626',
-    marginLeft: 8,
   },
   footer: {
     alignItems: 'center',
