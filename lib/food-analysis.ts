@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system';
-import { openai, createFoodAnalysisPrompt } from './openai';
+import { analyzeFoodImage as analyzeFood } from './openai';
 import { supabase } from './supabase';
 
 // 型定義
@@ -58,193 +58,30 @@ export interface UserProfile {
   beautyLevel: 'beginner' | 'intermediate' | 'advanced';
 }
 
-// 画像をリサイズしてbase64に変換する関数（コスト削減）
-const convertImageToBase64 = async (imageUri: string, maxImageSize: number, imageQuality: number): Promise<string> => {
-  try {
-    console.log('画像処理開始:', { imageUri: imageUri.substring(0, 50), maxImageSize, imageQuality });
+// 画像変換機能はopenai.tsに統合済み
 
-    // URIの検証
-    if (!imageUri || imageUri.trim() === '') {
-      throw new Error('画像URIが無効です');
-    }
+// 信頼度スコア計算機能はopenai.tsに統合済み
 
-    // 外部URLの場合は一度ローカルにダウンロード
-    let processImageUri = imageUri;
-    if (imageUri.startsWith('http://') || imageUri.startsWith('https://')) {
-      console.log('外部画像をダウンロード中...');
-      const downloadResult = await FileSystem.downloadAsync(
-        imageUri,
-        FileSystem.documentDirectory + 'temp_image.jpg'
-      );
-      processImageUri = downloadResult.uri;
-    }
+// 分析設定機能はopenai.tsに統合済み
 
-    // 一時的にリサイズを無効化し、元の画像をそのまま使用
-    console.log('画像処理完了（リサイズスキップ）:', { 
-      originalUri: processImageUri.substring(0, 50)
-    });
-
-    // base64に変換
-    const base64 = await FileSystem.readAsStringAsync(processImageUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    // base64の検証
-    if (!base64 || base64.length === 0) {
-      throw new Error('画像のbase64変換に失敗しました');
-    }
-
-    // 外部URLからダウンロードした一時ファイルを削除
-    try {
-      if (processImageUri !== imageUri) {
-        await FileSystem.deleteAsync(processImageUri, { idempotent: true });
-      }
-    } catch (deleteError) {
-      console.warn('一時ファイル削除失敗:', deleteError);
-    }
-
-    return `data:image/jpeg;base64,${base64}`;
-  } catch (error) {
-    console.error('画像変換エラー:', error);
-    
-    // より具体的なエラーメッセージ
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes('No such file')) {
-      throw new Error('画像ファイルが見つかりません。もう一度撮影してください。');
-    } else if (errorMessage.includes('permission')) {
-      throw new Error('画像ファイルへのアクセス権限がありません。');
-    } else if (errorMessage.includes('memory') || errorMessage.includes('Memory')) {
-      throw new Error('画像が大きすぎます。もう一度撮影してください。');
-    } else {
-      throw new Error('画像の処理に失敗しました。もう一度お試しください。');
-    }
-  }
-};
-
-// 信頼度スコアの平均を計算
-const calculateAverageConfidence = (foods: DetectedFood[]): number => {
-  if (foods.length === 0) return 0;
-  const totalConfidence = foods.reduce((sum, food) => sum + food.confidence, 0);
-  return totalConfidence / foods.length;
-};
-
-// 戦略的品質設定（フリーミアムモデル）
-interface AnalysisConfig {
-  imageQuality: number;
-  imageDetail: 'low' | 'high';
-  model: 'gpt-4o-mini' | 'gpt-4o';
-  maxImageSize: number;
-}
-
-// ユーザータイプ別の品質設定
-const getAnalysisConfig = (isPremium: boolean): AnalysisConfig => {
-  if (isPremium) {
-    // 課金ユーザー: 最高品質・詳細分析
-    return {
-      imageQuality: 0.9,        // 最高品質（90%）
-      imageDetail: 'high',      // 高解像度解析
-      model: 'gpt-4o',          // 最新・最高性能モデル（詳細食材検出に優秀）
-      maxImageSize: 1536        // 大きなサイズ（詳細分析のため）
-    };
-  } else {
-    // 無料ユーザー: 良品質（課金への誘導品質）
-    return {
-      imageQuality: 0.7,        // 良品質（70%）- 改善された品質
-      imageDetail: 'low',       // 低解像度（コスト削減）
-      model: 'gpt-4o-mini',     // コスト効率の良いモデル
-      maxImageSize: 768         // 適度なサイズ（品質向上のため増加）
-    };
-  }
-};
-
-// OpenAI APIで食事を解析
+// openai.tsの統合されたanalyzeFood関数を使用する薄いラッパー
 export const analyzeFoodImage = async (
   imageUri: string, 
   isPremium: boolean = false,
   userProfile?: UserProfile
 ): Promise<FoodAnalysisResult> => {
   try {
-    console.log('🍽️ 食事解析開始:', { isPremium, imageUri: imageUri.substring(0, 50) + '...' });
+    console.log('🍽️ food-analysis.ts: openai.tsに処理を委譲', { isPremium });
     
-    // ユーザータイプに応じた設定を取得
-    const config = getAnalysisConfig(isPremium);
-    console.log('📊 解析設定:', config);
-
-    // 画像をリサイズしてbase64に変換
-    const base64Image = await convertImageToBase64(imageUri, config.maxImageSize, config.imageQuality);
-    console.log('🖼️ 画像処理完了:', { 
-      size: `${config.maxImageSize}px`, 
-      quality: `${config.imageQuality * 100}%`,
-      model: config.model 
-    });
-
-    // OpenAI APIで解析
-    const response = await openai.chat.completions.create({
-      model: config.model,
-      messages: [
-        {
-          role: "system",
-          content: "あなたは美容栄養学の専門家です。必ず有効なJSON形式でのみ回答してください。日本語のテキストや説明は一切含めず、純粋なJSONオブジェクトのみを返してください。"
-        },
-        {
-          role: "user",
-          content: [
-            { 
-              type: "text", 
-              text: createFoodAnalysisPrompt({
-                beautyCategories: userProfile?.beautyCategories || ['skin_care'],
-                beautyLevel: userProfile?.beautyLevel || 'intermediate'
-              }) 
-            },
-            { 
-              type: "image_url", 
-              image_url: { 
-                url: base64Image,
-                detail: config.imageDetail
-              } 
-            }
-          ]
-        }
-      ],
-      max_tokens: isPremium ? 2000 : 1500, // プレミアムユーザーはより詳細な分析
-      temperature: 0.3,
-      response_format: { type: "json_object" } // JSON形式を強制
-    });
-
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error('AIからの応答が空です');
-    }
-    
-    console.log('AI応答の最初の100文字:', content.substring(0, 100));
-    
-    // JSONをパース（エラーハンドリング強化）
-    let analysisResult: FoodAnalysisResult;
-    try {
-      analysisResult = JSON.parse(content);
-      console.log('JSON解析成功');
-    } catch (parseError) {
-      console.error('JSON解析エラー:', parseError);
-      console.error('問題のある応答:', content);
-      
-      // JSON解析に失敗した場合は明確なエラーを投げる
-      throw new Error('AI解析の結果を正しく処理できませんでした。もう一度お試しください。');
-    }
-    
-    // 結果の検証
-    if (!analysisResult.detected_foods || !analysisResult.nutrition_analysis) {
-      throw new Error('解析結果の形式が正しくありません');
-    }
-    
-    console.log('食事解析完了:', {
-      foodsCount: analysisResult.detected_foods.length,
-      overallScore: analysisResult.beauty_score.overall
+    // openai.tsの統合されたanalyzeFood関数を呼び出し
+    const result = await analyzeFood(imageUri, {
+      beautyCategories: userProfile?.beautyCategories || ['skin_care'],
+      beautyLevel: userProfile?.beautyLevel || 'intermediate'
     });
     
-    return analysisResult;
-    
+    return result;
   } catch (error) {
-    console.error('食事解析に失敗:', error);
+    console.error('food-analysis wrapper error:', error);
     throw error;
   }
 };
@@ -262,15 +99,18 @@ export const saveAnalysisResult = async (
       return;
     }
     
-    // ai_analysis_resultsテーブルに保存
+    // ai_analysis_resultsテーブルに保存（美容スコアも含める）
     const { error: analysisError } = await supabase
       .from('ai_analysis_results')
       .insert({
         meal_record_id: mealRecordId,
         detected_foods: analysisResult.detected_foods,
-        nutrition_analysis: analysisResult.nutrition_analysis,
+        nutrition_analysis: {
+          ...analysisResult.nutrition_analysis,
+          beauty_score: analysisResult.beauty_score // 美容スコアも栄養分析に含める
+        },
         raw_ai_response: rawResponse,
-        confidence_score: calculateAverageConfidence(analysisResult.detected_foods)
+        confidence_score: analysisResult.detected_foods.reduce((sum: number, food: any) => sum + (food.confidence || 0), 0) / analysisResult.detected_foods.length || 0
       });
     
     if (analysisError) {

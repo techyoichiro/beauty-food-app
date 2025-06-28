@@ -37,6 +37,7 @@ export default function ProfileScreen() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const isFreePlan = true;
+  const { createUserRecord } = useAuth();
 
   useEffect(() => {
     loadUserProfile();
@@ -218,6 +219,17 @@ export default function ProfileScreen() {
         { text: 'ログアウト', style: 'destructive', onPress: () => {} },
       ]
     );
+  };
+
+  // デバッグ用：ユーザーレコード作成
+  const handleCreateUserRecord = async () => {
+    try {
+      await createUserRecord();
+      Alert.alert('成功', 'ユーザーレコードが作成されました');
+    } catch (error) {
+      console.error('ユーザーレコード作成エラー:', error);
+      Alert.alert('エラー', 'ユーザーレコードの作成に失敗しました');
+    }
   };
 
   const handleSubscribe = (planId: string) => {
@@ -441,6 +453,12 @@ export default function ProfileScreen() {
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
         </View>
+
+        {/* Debug: User Record Creation */}
+        <TouchableOpacity style={styles.debugButton} onPress={handleCreateUserRecord}>
+          <Settings size={20} color="#059669" />
+          <Text style={styles.debugText}>デバッグ: ユーザーレコード作成</Text>
+        </TouchableOpacity>
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -672,6 +690,24 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansJP-Medium',
     color: '#1f2937',
     marginLeft: 12,
+  },
+  debugButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dcfce7',
+    marginHorizontal: 20,
+    marginBottom: 10,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#059669',
+  },
+  debugText: {
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-Medium',
+    color: '#059669',
+    marginLeft: 8,
   },
   logoutButton: {
     flexDirection: 'row',

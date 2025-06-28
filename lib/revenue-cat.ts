@@ -3,7 +3,8 @@ import Purchases, {
   PurchasesPackage, 
   CustomerInfo,
   PurchasesError,
-  PURCHASES_ERROR_CODE
+  PURCHASES_ERROR_CODE,
+  LOG_LEVEL
 } from 'react-native-purchases';
 import { Platform } from 'react-native';
 
@@ -60,13 +61,11 @@ class RevenueCatService {
       await Purchases.configure({
         apiKey,
         appUserID: null, // RevenueCatが自動で匿名IDを生成
-        observerMode: false,
-        useAmazon: false,
       });
 
       // デバッグログを有効化（本番では無効にする）
       if (__DEV__) {
-        await Purchases.setLogLevel('DEBUG');
+        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
       }
 
       this.initialized = true;
@@ -178,7 +177,7 @@ class RevenueCatService {
       console.error('Purchase failed:', error);
       
       // ユーザーがキャンセルした場合
-      if (error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED) {
+      if (error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
         return {
           success: false,
           userCancelled: true,
@@ -238,18 +237,10 @@ class RevenueCatService {
    */
   getErrorMessage(error: PurchasesError): string {
     switch (error.code) {
-      case PURCHASES_ERROR_CODE.PURCHASE_CANCELLED:
+      case PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR:
         return '購入がキャンセルされました';
-      case PURCHASES_ERROR_CODE.STORE_PROBLEM:
-        return 'App Storeに問題が発生しました。後でもう一度お試しください';
-      case PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED:
+      case PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR:
         return '購入が許可されていません。設定を確認してください';
-      case PURCHASES_ERROR_CODE.PURCHASE_INVALID:
-        return '購入情報が無効です';
-      case PURCHASES_ERROR_CODE.PRODUCT_NOT_AVAILABLE:
-        return 'この商品は現在利用できません';
-      case PURCHASES_ERROR_CODE.NETWORK_ERROR:
-        return 'ネットワークエラーが発生しました。接続を確認してください';
       case PURCHASES_ERROR_CODE.CONFIGURATION_ERROR:
         return 'アプリの設定に問題があります';
       default:

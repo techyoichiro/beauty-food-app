@@ -135,10 +135,22 @@ export const createMealRecord = async (
     }
     
     // 認証済みユーザーの場合はデータベースに保存
+    // まず、usersテーブルから実際のuser.idを取得
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('auth_user_id', userId)
+      .single();
+    
+    if (userError || !userData) {
+      console.error('ユーザーレコード取得エラー:', userError);
+      throw new Error(`ユーザーが見つかりません: ${userError?.message}`);
+    }
+    
     const { data, error } = await supabase
       .from('meal_records')
       .insert({
-        user_id: userId,
+        user_id: userData.id, // usersテーブルの実際のIDを使用
         image_url: imagePath, // プライベートStorageのパスを保存
         meal_timing: mealTiming,
         analysis_status: 'pending'
@@ -266,7 +278,9 @@ export const processMealAnalysis = async (
     console.log('AI解析開始:', mealRecord.id);
     
     // Step 7: AI解析を実行（元の画像URIを使用）
-    const analysisResult = await analyzeFoodImage(imageUri, isPremium, userProfile); // プレミアム状態とユーザープロファイルを渡す
+    // openai.tsの統合されたanalyzeFoodImage関数を使用
+    const { analyzeFoodImage: analyzeFood } = await import('./openai');
+    const analysisResult = await analyzeFood(imageUri, userProfile); // 統合されたopenai.ts関数を使用
     
     // Step 8: 解析結果を保存（この中でステータスが'completed'に更新される）
     await saveAnalysisResult(
@@ -301,10 +315,33 @@ export const getUserMealRecords = async (
   offset: number = 0
 ): Promise<(MealRecord & { signedImageUrl?: string })[]> => {
   try {
+    // まず、usersテーブルから実際のuser.idを取得
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('auth_user_id', userId)
+      .single();
+    
+    if (userError || !userData) {
+      console.error('ユーザーレコード取得エラー:', userError);
+      return []; // ユーザーが見つからない場合は空配列を返す
+    }
+    
     const { data, error } = await supabase
       .from('meal_records')
-      .select('*')
-      .eq('user_id', userId)
+      .select(`
+        *,
+        ai_analysis_results (
+          detected_foods,
+          nutrition_analysis,
+          confidence_score
+        ),
+        advice_records (
+          advice_type,
+          advice_text
+        )
+      `)
+      .eq('user_id', userData.id) // usersテーブルの実際のIDを使用
       .order('taken_at', { ascending: false })
       .range(offset, offset + limit - 1);
     
@@ -312,18 +349,64 @@ export const getUserMealRecords = async (
       throw new Error(`食事記録の取得に失敗しました: ${error.message}`);
     }
     
-    // 各記録に署名付きURLを追加
+    // 各記録に署名付きURLと解析結果を追加
     const recordsWithSignedUrls = await Promise.all(
-      (data as MealRecord[]).map(async (record) => {
+      (data as any[]).map(async (record) => {
         try {
+          let processedRecord = { ...record };
+          
           // image_urlがStorageパスの場合のみ署名付きURLを生成
           if (record.image_url && !record.image_url.startsWith('data:')) {
             const signedUrl = await getSignedImageUrl(record.image_url);
-            return { ...record, signedImageUrl: signedUrl };
+            processedRecord.signedImageUrl = signedUrl;
           }
-          return record;
+          
+          // データベースの構造から解析結果を構築
+          if (record.ai_analysis_results && record.ai_analysis_results.length > 0) {
+            const analysisData = record.ai_analysis_results[0];
+            const immediateAdvice = record.advice_records?.find((advice: any) => advice.advice_type === 'immediate')?.advice_text || '';
+            const nextMealAdvice = record.advice_records?.find((advice: any) => advice.advice_type === 'next_meal')?.advice_text || '';
+            
+            // デバッグ用ログ
+            console.log('解析データの構造確認:', {
+              recordId: record.id,
+              hasAnalysisData: !!analysisData,
+              nutritionAnalysis: analysisData.nutrition_analysis,
+              beautyScore: analysisData.nutrition_analysis?.beauty_score
+            });
+            
+            // 美容スコアを取得（データベースに保存されている値または推定値）
+            const beautyScore = analysisData.nutrition_analysis?.beauty_score || {
+              overall: 75, // デフォルト値
+              skin_care: 70,
+              anti_aging: 75,
+              detox: 80,
+              circulation: 70,
+              hair_nails: 65
+            };
+            
+            processedRecord.analysisResult = {
+              detected_foods: analysisData.detected_foods || [],
+              nutrition_analysis: analysisData.nutrition_analysis || {},
+              beauty_score: beautyScore,
+              immediate_advice: immediateAdvice,
+              next_meal_advice: nextMealAdvice,
+              beauty_benefits: [],
+              confidence_score: analysisData.confidence_score || 0.8
+            };
+            
+            console.log('構築された解析結果:', {
+              recordId: record.id,
+              beautyScoreOverall: processedRecord.analysisResult.beauty_score.overall,
+              immediateAdvice: processedRecord.analysisResult.immediate_advice.substring(0, 50)
+            });
+          } else {
+            console.log('解析データが見つかりません:', record.id);
+          }
+          
+          return processedRecord;
         } catch (error) {
-          console.warn('署名付きURL生成失敗:', record.id, error);
+          console.warn('レコード処理失敗:', record.id, error);
           return record;
         }
       })

@@ -31,5 +31,15 @@ yarn-error.*
 .env*.local
 .env
 
+# security & secrets
+AuthKey_*.p8
+*.crt
+*.cer
+secrets/
+config/secrets.json
+.secret
+*secret*
+*private*
+
 # typescript
 *.tsbuildinfo

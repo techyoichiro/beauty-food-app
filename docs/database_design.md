@@ -144,18 +144,296 @@ CREATE INDEX idx_usage_analytics_user_created ON usage_analytics(user_id, create
 
 ## Row Level Security (RLS)
 
+### RLS有効化
 ```sql
--- ユーザーデータの行レベルセキュリティ
+-- 全テーブルでRLSを有効化
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_beauty_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE meal_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_analysis_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE advice_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_nutrition_summaries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE monthly_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usage_analytics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_usage_limits ENABLE ROW LEVEL SECURITY;
+```
 
--- ユーザーは自分のデータのみアクセス可能
-CREATE POLICY "Users can access own data" ON users FOR ALL USING (auth_user_id = auth.uid());
-CREATE POLICY "Users can access own meal records" ON meal_records FOR ALL USING (user_id IN (SELECT id FROM users WHERE auth_user_id = auth.uid()));
--- 他のテーブルも同様のポリシーを適用
+### 詳細なRLSポリシー設定
+
+#### usersテーブルのポリシー
+```sql
+-- users テーブル（auth_user_idでアクセス制御）
+CREATE POLICY "users_insert_policy" 
+ON users 
+FOR INSERT 
+WITH CHECK (auth.uid() = auth_user_id);
+
+CREATE POLICY "users_select_policy" 
+ON users 
+FOR SELECT 
+USING (auth.uid() = auth_user_id);
+
+CREATE POLICY "users_update_policy" 
+ON users 
+FOR UPDATE 
+USING (auth.uid() = auth_user_id);
+
+CREATE POLICY "users_delete_policy" 
+ON users 
+FOR DELETE 
+USING (auth.uid() = auth_user_id);
+```
+
+#### user_beauty_categoriesテーブルのポリシー
+```sql
+-- user_beauty_categories テーブル（usersテーブル経由でアクセス制御）
+CREATE POLICY "user_beauty_categories_insert_policy" 
+ON user_beauty_categories 
+FOR INSERT 
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = user_beauty_categories.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "user_beauty_categories_select_policy" 
+ON user_beauty_categories 
+FOR SELECT 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = user_beauty_categories.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "user_beauty_categories_update_policy" 
+ON user_beauty_categories 
+FOR UPDATE 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = user_beauty_categories.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "user_beauty_categories_delete_policy" 
+ON user_beauty_categories 
+FOR DELETE 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = user_beauty_categories.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+```
+
+#### meal_recordsテーブルのポリシー
+```sql
+-- meal_records テーブル（usersテーブル経由でアクセス制御）
+CREATE POLICY "meal_records_insert_policy" 
+ON meal_records 
+FOR INSERT 
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = meal_records.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "meal_records_select_policy" 
+ON meal_records 
+FOR SELECT 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = meal_records.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "meal_records_update_policy" 
+ON meal_records 
+FOR UPDATE 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = meal_records.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "meal_records_delete_policy" 
+ON meal_records 
+FOR DELETE 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = meal_records.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+```
+
+#### ai_analysis_resultsテーブルのポリシー
+```sql
+-- ai_analysis_results テーブル（meal_records経由でアクセス制御）
+CREATE POLICY "ai_analysis_results_insert_policy" 
+ON ai_analysis_results 
+FOR INSERT 
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM meal_records 
+        JOIN users ON users.id = meal_records.user_id
+        WHERE meal_records.id = ai_analysis_results.meal_record_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "ai_analysis_results_select_policy" 
+ON ai_analysis_results 
+FOR SELECT 
+USING (
+    EXISTS (
+        SELECT 1 FROM meal_records 
+        JOIN users ON users.id = meal_records.user_id
+        WHERE meal_records.id = ai_analysis_results.meal_record_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "ai_analysis_results_update_policy" 
+ON ai_analysis_results 
+FOR UPDATE 
+USING (
+    EXISTS (
+        SELECT 1 FROM meal_records 
+        JOIN users ON users.id = meal_records.user_id
+        WHERE meal_records.id = ai_analysis_results.meal_record_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+```
+
+#### advice_recordsテーブルのポリシー
+```sql
+-- advice_records テーブル（meal_records経由でアクセス制御）
+CREATE POLICY "advice_records_insert_policy" 
+ON advice_records 
+FOR INSERT 
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM meal_records 
+        JOIN users ON users.id = meal_records.user_id
+        WHERE meal_records.id = advice_records.meal_record_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "advice_records_select_policy" 
+ON advice_records 
+FOR SELECT 
+USING (
+    EXISTS (
+        SELECT 1 FROM meal_records 
+        JOIN users ON users.id = meal_records.user_id
+        WHERE meal_records.id = advice_records.meal_record_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "advice_records_update_policy" 
+ON advice_records 
+FOR UPDATE 
+USING (
+    EXISTS (
+        SELECT 1 FROM meal_records 
+        JOIN users ON users.id = meal_records.user_id
+        WHERE meal_records.id = advice_records.meal_record_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+```
+
+#### サマリー・レポート・分析テーブルのポリシー
+```sql
+-- daily_nutrition_summaries テーブル
+CREATE POLICY "daily_nutrition_summaries_all_policy" 
+ON daily_nutrition_summaries 
+FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = daily_nutrition_summaries.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+-- monthly_reports テーブル
+CREATE POLICY "monthly_reports_all_policy" 
+ON monthly_reports 
+FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = monthly_reports.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+-- usage_analytics テーブル
+CREATE POLICY "usage_analytics_all_policy" 
+ON usage_analytics 
+FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = usage_analytics.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+
+-- daily_usage_limits テーブル
+CREATE POLICY "daily_usage_limits_all_policy" 
+ON daily_usage_limits 
+FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM users 
+        WHERE users.id = daily_usage_limits.user_id 
+        AND users.auth_user_id = auth.uid()
+    )
+);
+```
+
+### RLSポリシーのポイント
+
+1. **認証ベース**: 全てのポリシーは`auth.uid()`（Supabase Auth）に基づく
+2. **階層アクセス**: 直接制御（users）→間接制御（meal_records）→多段制御（ai_analysis_results）
+3. **型安全**: UUIDとtextの型変換エラーを回避
+4. **一貫性**: 全テーブルで統一されたポリシー命名規則
+5. **セキュリティ**: ユーザーは自分のデータのみアクセス可能
+
+### ポリシー削除・再作成（メンテナンス用）
+```sql
+-- 既存のポリシーをすべて削除して再作成する場合
+DO $$ 
+DECLARE 
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT schemaname, tablename, policyname FROM pg_policies WHERE tablename IN (
+        'users', 'user_beauty_categories', 'meal_records', 'ai_analysis_results', 
+        'advice_records', 'daily_nutrition_summaries', 'monthly_reports', 
+        'usage_analytics', 'daily_usage_limits'
+    )) LOOP
+        EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON ' || r.tablename;
+    END LOOP;
+END $$;
 ```
 
 ## データ型の詳細
@@ -237,4 +515,43 @@ CREATE TABLE daily_usage_limits (
 - 分析結果: 無期限保持（プライバシー設定に応じて）
 - 使用状況ログ: 3ヶ月間保持
 
-この設計により、MVPから将来の拡張まで対応できる柔軟なデータベース構造を提供できます。 
+## セキュリティ考慮事項
+
+### 認証フロー
+1. **Apple Sign-In必須**: 全ユーザーが認証済み
+2. **自動ユーザー作成**: 初回サインイン時に`users`テーブルにレコード自動作成
+3. **型安全**: `auth.uid()`（UUID）と`auth_user_id`（UUID）の適切な型マッチング
+
+### データプライバシー
+- 全テーブルで適切なRLSポリシー実装済み
+- ユーザーは自分のデータのみアクセス可能
+- 外部キー制約により関連データの整合性を保証
+
+### パフォーマンス最適化
+- 必要なインデックスを設定済み
+- RLSポリシーでのEXISTS句最適化
+- JOINクエリの効率化
+
+## トラブルシューティング
+
+### よくある問題と解決方法
+
+#### 1. RLS違反エラー
+```
+new row violates row-level security policy
+```
+**解決方法**: ユーザーレコードが存在することを確認、RLSポリシーが正しく設定されているか確認
+
+#### 2. 外部キー制約エラー
+```
+violates foreign key constraint "meal_records_user_id_fkey"
+```
+**解決方法**: `ensureUserRecord()`関数でユーザーレコードを事前作成
+
+#### 3. UUID型変換エラー
+```
+operator does not exist: text = uuid
+```
+**解決方法**: 適切な型キャストまたは統一されたUUID型の使用
+
+この設計により、MVPから将来の拡張まで対応できる、セキュアで柔軟なデータベース構造を提供できます。 

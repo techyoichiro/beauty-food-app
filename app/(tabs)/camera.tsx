@@ -31,7 +31,6 @@ import {
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { processMealAnalysis, getTodayMealCount, UserProfileService } from '../../lib/meal-service';
-import { analyzeFoodImage } from '../../lib/food-analysis';
 
 const mealTimes = [
   { id: 'breakfast', label: '朝食', icon: Sun, color: '#f59e0b' },
@@ -142,7 +141,9 @@ export default function CameraScreen() {
       // ユーザープロファイルを取得
       const userProfile = await UserProfileService.getProfile();
       
-      const result = await analyzeFoodImage(imageUri, isPremium, userProfile);
+      // openai.tsの統合された関数を使用
+      const { analyzeFoodImage } = await import('../../lib/openai');
+      const result = await analyzeFoodImage(imageUri, userProfile);
       
       // 結果画面に遷移
       router.push({

@@ -43,14 +43,6 @@ export default function AppleSignInScreen() {
 
 
 
-  const handleSkip = async () => {
-    try {
-      await completeOnboarding();
-      router.replace('/(tabs)');
-    } catch (error) {
-      console.error('Skip onboarding error:', error);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -129,19 +121,6 @@ export default function AppleSignInScreen() {
 
 
 
-            {/* スキップボタン */}
-            <TouchableOpacity
-              style={styles.skipButton}
-              onPress={handleSkip}
-              disabled={isLoading}
-            >
-              <Text style={[
-                styles.skipButtonText,
-                isLoading && styles.skipButtonTextDisabled,
-              ]}>
-                今はスキップ
-              </Text>
-            </TouchableOpacity>
 
             {/* プライバシーポリシー */}
             <Text style={styles.privacyText}>
@@ -297,20 +276,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     marginLeft: 8,
   },
-  skipButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
-  skipButtonText: {
-    fontSize: 16,
-    fontFamily: 'NotoSansJP-Medium',
-    color: '#666',
-    textAlign: 'center',
-  },
-  skipButtonTextDisabled: {
-    color: '#CCC',
-  },
   privacyText: {
     fontSize: 12,
     fontFamily: 'NotoSansJP-Regular',
@@ -325,3 +290,4 @@ const styles = StyleSheet.create({
   },
 
 }); 
+export default AppleSignInScreen;

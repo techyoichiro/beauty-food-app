@@ -271,7 +271,8 @@ export default function HistoryScreen() {
           hour: '2-digit',
           minute: '2-digit'
         }),
-        image: meal.image_url,
+        image: meal.signedImageUrl || meal.image_url, // 署名付きURLを優先
+        imageUri: meal.signedImageUrl || meal.image_url, // 詳細画面用のURI
         score: meal.analysisResult?.beauty_score?.overall || 0,
         advice: meal.analysisResult?.immediate_advice || '解析中...',
         analysisResult: meal.analysisResult
@@ -325,12 +326,19 @@ export default function HistoryScreen() {
   const handleMealCardPress = (meal: any) => {
     // 解析結果データをJSONStringifyして画面に渡す
     const analysisDataString = JSON.stringify(meal.analysisResult);
+    console.log('履歴カード押下:', {
+      mealId: meal.id,
+      hasAnalysisResult: !!meal.analysisResult,
+      beautyScore: meal.analysisResult?.beauty_score?.overall,
+      imageUri: meal.imageUri || meal.image
+    });
+    
     router.push({
       pathname: '/analysis-result',
       params: {
-        mealRecordId: `history_${meal.id}`,
+        mealRecordId: meal.id, // プレフィックスを削除
         analysisData: analysisDataString,
-        imageUri: meal.image
+        imageUri: meal.imageUri || meal.image // signedImageUrlを優先使用
       }
     } as any);
   };

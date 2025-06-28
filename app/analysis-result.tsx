@@ -16,12 +16,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, TrendingUp, Utensils, Lightbulb, HelpCircle } from 'lucide-react-native';
 import { FoodAnalysisResult, DetectedFood } from '../lib/food-analysis';
 import PremiumModal from '../components/PremiumModal';
+import { useAuth } from '../contexts/AuthContext';
 
 // 統合された解析結果型（FoodAnalysisResultに全て含まれるように修正）
 type AnalysisResult = FoodAnalysisResult;
 
 export default function AnalysisResultScreen() {
   const { mealRecordId, analysisResult, imageUri, isPremium } = useLocalSearchParams();
+  const { user } = useAuth();
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [currentImageUri, setCurrentImageUri] = useState<string>('');
   const [currentIsPremium, setCurrentIsPremium] = useState<boolean>(false);
@@ -185,17 +187,72 @@ export default function AnalysisResultScreen() {
     router.back();
   };
 
-  const handleSaveToHistory = () => {
-    Alert.alert(
-      '保存完了',
-      '解析結果が履歴に保存されました',
-      [
-        {
-          text: 'OK',
-          onPress: () => router.push('/(tabs)/history' as any)
-        }
-      ]
-    );
+  const handleSaveToHistory = async () => {
+    if (!analysis) {
+      Alert.alert('エラー', '保存する解析結果がありません');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // 解析結果が既にmealRecordIdを持っている場合は保存済み
+      if (mealRecordId) {
+        Alert.alert(
+          '既に保存済み',
+          'この解析結果は既に履歴に保存されています',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.push('/(tabs)/history' as any)
+            }
+          ]
+        );
+        return;
+      }
+
+      // 新規保存処理
+      const { createMealRecord } = await import('../lib/meal-service');
+      const { saveAnalysisResult } = await import('../lib/food-analysis');
+      
+      // ユーザーID取得（認証済みユーザー or ゲスト）
+      const userId = user?.id || 'guest_user';
+      
+      // 食事タイミングを推定（現在時刻から）
+      const now = new Date();
+      const hour = now.getHours();
+      let mealTiming: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'snack';
+      
+      if (hour >= 6 && hour < 10) mealTiming = 'breakfast';
+      else if (hour >= 11 && hour < 15) mealTiming = 'lunch';
+      else if (hour >= 17 && hour < 21) mealTiming = 'dinner';
+      
+      // 食事記録を作成
+      const mealRecord = await createMealRecord(userId, currentImageUri, mealTiming);
+      
+      // 解析結果を保存
+      await saveAnalysisResult(mealRecord.id, analysis, JSON.stringify(analysis));
+      
+      Alert.alert(
+        '保存完了',
+        '解析結果が履歴に保存されました',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push('/(tabs)/history' as any)
+          }
+        ]
+      );
+      
+    } catch (error) {
+      console.error('履歴保存エラー:', error);
+      Alert.alert(
+        'エラー',
+        '履歴の保存に失敗しました。もう一度お試しください。'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading || !analysis) {

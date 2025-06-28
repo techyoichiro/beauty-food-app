@@ -30,6 +30,10 @@ npm run ios        # iOS device/simulator
 ```bash
 npm install
 npx expo start
+# EAS Build setup (for production builds)
+npx eas build --platform all  # Both iOS and Android
+npx eas build --platform ios  # iOS only
+npx eas build --platform android  # Android only
 ```
 
 ## Architecture Overview
@@ -43,6 +47,8 @@ npx expo start
 - **State**: React Context (AuthContext) + local state
 - **Fonts**: Poppins (English) + Noto Sans JP (Japanese)
 - **Notifications**: Slack webhook integration
+- **Payments**: RevenueCat for premium subscriptions
+- **Toast Messages**: react-native-toast-message for user feedback
 
 ### Project Structure
 ```
@@ -64,7 +70,8 @@ lib/                   # Core business logic
 ├── openai.ts          # AI analysis prompts & client
 ├── food-analysis.ts   # Main food analysis logic
 ├── meal-service.ts    # Meal data operations
-└── slack-service.ts   # Slack webhook integration
+├── slack-service.ts   # Slack webhook integration
+└── revenue-cat.ts     # Premium subscription management
 
 hooks/                 # Custom React hooks
 └── useFrameworkReady.ts
@@ -107,6 +114,7 @@ hooks/                 # Custom React hooks
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key
+EXPO_PUBLIC_REVENUECAT_PUBLIC_KEY=your_revenuecat_key
 ```
 
 ### Code Style Notes (from .cursor/rules)
@@ -132,3 +140,10 @@ EXPO_PUBLIC_OPENAI_API_KEY=your_openai_api_key
 - Free users: GPT-4o-mini, lower resolution analysis, basic features
 - Premium users: GPT-4o, high resolution analysis, detailed reports, priority support
 - Quality differences designed to encourage upgrades while maintaining good free experience
+- RevenueCat handles subscription management and user entitlements
+
+## Important Notes
+- Apple Sign-In implementation includes secret generation (`npm run apple-secret`)
+- Guest mode allows users to try the app without signup
+- Japanese UI with comprehensive localization
+- EAS Build configuration ready for app store deployment

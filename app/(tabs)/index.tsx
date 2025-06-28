@@ -51,8 +51,6 @@ export default function HomeScreen() {
           >
             <Text style={styles.signInButtonText}>Apple IDでサインイン</Text>
           </TouchableOpacity>
-          
-
         </>
       )}
     </View>
@@ -116,5 +114,18 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansJP-Medium',
     color: '#FF6B9D',
   },
-
+  debugButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFA500',
+    marginTop: 12,
+  },
+  debugButtonText: {
+    fontSize: 12,
+    fontFamily: 'NotoSansJP-Medium',
+    color: '#FFA500',
+  },
 });

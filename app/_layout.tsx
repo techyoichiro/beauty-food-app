@@ -15,7 +15,8 @@ import {
   NotoSansJP_700Bold,
 } from '@expo-google-fonts/noto-sans-jp';
 import * as SplashScreen from 'expo-splash-screen';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import RequireSignIn from '@/components/RequireSignIn';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useColorScheme } from 'react-native';
@@ -50,7 +51,22 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <AppContent colorScheme={colorScheme} />
+    </AuthProvider>
+  );
+}
+
+// 認証状態に基づいてコンテンツを表示するコンポーネント
+function AppContent({ colorScheme }: { colorScheme: 'light' | 'dark' | null }) {
+  const { requiresSignIn } = useAuth();
+
+  if (requiresSignIn) {
+    return <RequireSignIn />;
+  }
+
+  return (
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding/welcome" />
@@ -147,7 +163,7 @@ export default function RootLayout() {
           position="top"
           topOffset={60}
         />
-      </ThemeProvider>
-    </AuthProvider>
+      </>
+    </ThemeProvider>
   );
 }
