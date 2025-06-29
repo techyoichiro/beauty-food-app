@@ -88,6 +88,19 @@ export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumM
   const loadAvailablePlans = async () => {
     try {
       setPlansLoading(true);
+      
+      // 購入可能性をチェック
+      const availability = await revenueCatService.checkPurchaseAvailability();
+      if (!availability.canPurchase) {
+        console.error('Purchase not available:', availability.error);
+        Toast.show({
+          type: 'error',
+          text1: '購入機能エラー',
+          text2: availability.error || 'プラン情報の取得に失敗しました',
+        });
+        return;
+      }
+      
       const plans = await getAvailablePlans();
       setAvailablePlans(plans);
       
@@ -95,13 +108,27 @@ export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumM
       if (plans.length > 0) {
         const yearlyPlan = plans.find(p => p.id.includes('yearly'));
         setSelectedPlan(yearlyPlan?.id || plans[0].id);
+      } else {
+        // 開発環境では製品審査待ちの可能性があるため、デフォルトプランを使用
+        console.log('⚠️ RevenueCatプラン取得失敗、デフォルトプランを使用');
+        setAvailablePlans(defaultPlans.map(plan => ({
+          ...plan,
+          rcPackage: null as any // 開発用の暫定対応
+        })));
+        setSelectedPlan('yearly_premium');
+        
+        Toast.show({
+          type: 'info',
+          text1: '開発モード',
+          text2: 'App Store製品審査待ちのため、デモ価格を表示中',
+        });
       }
     } catch (error) {
       console.error('Failed to load plans:', error);
       Toast.show({
         type: 'error',
         text1: 'プラン取得エラー',
-        text2: 'プラン情報の取得に失敗しました',
+        text2: 'ネットワーク接続を確認してください',
       });
     } finally {
       setPlansLoading(false);
@@ -153,6 +180,14 @@ export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumM
     try {
       setRestoring(true);
       
+      // 復元可能性をチェック
+      const restoreAvailability = await revenueCatService.checkRestoreAvailability();
+      
+      if (!restoreAvailability.canRestore) {
+        Alert.alert('復元不可', restoreAvailability.error || '復元可能な購入履歴が見つかりません');
+        return;
+      }
+      
       const result: PurchaseResult = await restorePurchases();
       
       if (result.success) {
@@ -167,7 +202,7 @@ export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumM
           });
           onClose();
         } else {
-          Alert.alert('復元結果', '復元可能な購入が見つかりませんでした');
+          Alert.alert('復元結果', '復元可能な購入が見つかりませんでした。過去にこのApple IDで購入されたことがあるか確認してください。');
         }
       } else {
         const errorMessage = result.error ? revenueCatService.getErrorMessage(result.error) : '復元中にエラーが発生しました';
@@ -175,7 +210,7 @@ export default function PremiumModal({ visible, onClose, onSubscribe }: PremiumM
       }
     } catch (error: any) {
       console.error('Restore error:', error);
-      Alert.alert('復元エラー', '復元処理中にエラーが発生しました');
+      Alert.alert('復元エラー', 'ネットワーク接続を確認してから再試行してください');
     } finally {
       setRestoring(false);
     }

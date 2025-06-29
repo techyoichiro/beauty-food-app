@@ -38,6 +38,7 @@ export interface PurchaseResult {
 
 class RevenueCatService {
   private initialized = false;
+  private isSandboxMode = __DEV__; // 開発モードではSandboxを使用
 
   /**
    * RevenueCatの初期化
@@ -56,7 +57,10 @@ class RevenueCatService {
         return;
       }
 
-      console.log('Initializing RevenueCat...');
+      console.log('Initializing RevenueCat...', {
+        platform: Platform.OS,
+        sandboxMode: this.isSandboxMode
+      });
       
       await Purchases.configure({
         apiKey,
@@ -66,6 +70,7 @@ class RevenueCatService {
       // デバッグログを有効化（本番では無効にする）
       if (__DEV__) {
         Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        console.log('🧪 RevenueCat Sandbox Mode: ENABLED');
       }
 
       this.initialized = true;
@@ -239,12 +244,118 @@ class RevenueCatService {
     switch (error.code) {
       case PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR:
         return '購入がキャンセルされました';
+        
       case PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR:
-        return '購入が許可されていません。設定を確認してください';
+        return '購入が許可されていません。設定 > スクリーンタイム > コンテンツとプライバシーの制限 > iTunes および App Store での購入 を確認してください';
+        
+      case PURCHASES_ERROR_CODE.PURCHASE_INVALID_ERROR:
+        return '選択された商品は現在利用できません。しばらく時間をおいてから再試行してください';
+        
+      case PURCHASES_ERROR_CODE.PRODUCT_NOT_AVAILABLE_FOR_PURCHASE_ERROR:
+        return 'この商品は現在購入できません。App Store の設定を確認してください';
+        
+      case PURCHASES_ERROR_CODE.NETWORK_ERROR:
+        return 'ネットワーク接続を確認してから再試行してください';
+        
       case PURCHASES_ERROR_CODE.CONFIGURATION_ERROR:
-        return 'アプリの設定に問題があります';
+        return 'アプリの設定に問題があります。アプリを最新版に更新してください';
+        
+      case PURCHASES_ERROR_CODE.RECEIPT_ALREADY_IN_USE_ERROR:
+        return 'このレシートは既に使用されています。購入の復元をお試しください';
+        
+      case PURCHASES_ERROR_CODE.MISSING_RECEIPT_FILE_ERROR:
+        return 'レシート情報が見つかりません。App Store にサインインしているか確認してください';
+        
+      case PURCHASES_ERROR_CODE.INVALID_RECEIPT_ERROR:
+        return 'レシート情報が無効です。購入の復元をお試しください';
+        
+      case PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR:
+        return '支払いが保留中です。承認され次第、プレミアム機能が利用可能になります';
+        
+      case PURCHASES_ERROR_CODE.INSUFFICIENT_PERMISSIONS_ERROR:
+        return '購入に必要な権限がありません。保護者による制限を確認してください';
+        
+      case PURCHASES_ERROR_CODE.INVALID_APP_USER_ID_ERROR:
+        return 'ユーザー認証に問題があります。アプリを再起動してください';
+        
+      case PURCHASES_ERROR_CODE.OPERATION_ALREADY_IN_PROGRESS_ERROR:
+        return '別の購入処理が実行中です。完了してから再試行してください';
+        
+      case PURCHASES_ERROR_CODE.UNKNOWN_BACKEND_ERROR:
+        return 'サーバーで問題が発生しました。しばらく時間をおいてから再試行してください';
+        
       default:
-        return error.message || '購入処理中にエラーが発生しました';
+        // 詳細なエラー情報をログに出力（開発用）
+        console.error('Unhandled RevenueCat Error:', {
+          code: error.code,
+          message: error.message,
+          underlyingErrorMessage: error.underlyingErrorMessage
+        });
+        
+        return error.message || '購入処理中にエラーが発生しました。しばらく時間をおいてから再試行してください';
+    }
+  }
+
+  /**
+   * 購入可能状態をチェック
+   */
+  async checkPurchaseAvailability(): Promise<{ canPurchase: boolean; error?: string }> {
+    try {
+      // RevenueCat初期化状態をチェック
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      // 利用可能な製品を取得
+      const plans = await this.getAvailablePlans();
+      
+      if (plans.length === 0) {
+        return {
+          canPurchase: false,
+          error: 'App Store からの製品情報取得に失敗しました。ネットワーク接続を確認してください'
+        };
+      }
+
+      return { canPurchase: true };
+      
+    } catch (error: any) {
+      console.error('Purchase availability check failed:', error);
+      return {
+        canPurchase: false,
+        error: '購入機能の初期化に失敗しました。アプリを再起動してください'
+      };
+    }
+  }
+
+  /**
+   * 購入復元の可用性をチェック
+   */
+  async checkRestoreAvailability(): Promise<{ canRestore: boolean; error?: string }> {
+    try {
+      const customerInfo = await this.getCustomerInfo();
+      
+      if (!customerInfo) {
+        return {
+          canRestore: false,
+          error: 'ユーザー情報の取得に失敗しました'
+        };
+      }
+
+      // 過去の購入履歴があるかチェック
+      const hasActiveEntitlements = Object.keys(customerInfo.entitlements.active).length > 0;
+      const hasAllEntitlements = Object.keys(customerInfo.entitlements.all).length > 0;
+      
+      return {
+        canRestore: hasAllEntitlements,
+        error: hasAllEntitlements ? undefined : '復元可能な購入履歴が見つかりません'
+      };
+      
+    } catch (error: any) {
+      console.error('Restore availability check failed:', error);
+      return {
+        canRestore: false,
+        error: '復元機能の確認に失敗しました'
+      };
     }
   }
 
@@ -257,6 +368,55 @@ class RevenueCatService {
       console.log('RevenueCat user logged out');
     } catch (error) {
       console.error('RevenueCat logout failed:', error);
+    }
+  }
+
+  /**
+   * Sandboxテスト用：購入状態をリセット
+   */
+  async resetSandboxPurchases(): Promise<void> {
+    if (!__DEV__) {
+      console.warn('Sandbox reset is only available in development mode');
+      return;
+    }
+
+    try {
+      console.log('🧪 Resetting Sandbox purchases...');
+      await Purchases.logOut();
+      
+      // 少し待ってから再初期化
+      setTimeout(async () => {
+        await this.initialize();
+        console.log('✅ Sandbox reset complete');
+      }, 1000);
+      
+    } catch (error) {
+      console.error('❌ Sandbox reset failed:', error);
+    }
+  }
+
+  /**
+   * Sandboxテスト用：現在のテスト状態を表示
+   */
+  async debugSandboxStatus(): Promise<void> {
+    if (!__DEV__) return;
+
+    try {
+      const customerInfo = await Purchases.getCustomerInfo();
+      const offerings = await Purchases.getOfferings();
+      
+      console.log('🧪 Sandbox Debug Info:', {
+        userId: customerInfo.originalAppUserId,
+        isPremium: customerInfo.entitlements.active[PREMIUM_ENTITLEMENT_ID]?.isActive,
+        activeEntitlements: Object.keys(customerInfo.entitlements.active),
+        allEntitlements: Object.keys(customerInfo.entitlements.all),
+        availableOfferings: Object.keys(offerings.all),
+        currentOffering: offerings.current?.identifier,
+        environment: customerInfo.requestDate
+      });
+      
+    } catch (error) {
+      console.error('Failed to get sandbox debug info:', error);
     }
   }
 }

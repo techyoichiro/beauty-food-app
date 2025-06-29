@@ -10,7 +10,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { 
@@ -30,7 +30,7 @@ import {
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { processMealAnalysis, getTodayMealCount, UserProfileService } from '../../lib/meal-service';
+import { analyzeMealImage, getTodayMealCount, UserProfileService } from '../../lib/meal-service';
 
 const mealTimes = [
   { id: 'breakfast', label: '朝食', icon: Sun, color: '#f59e0b' },
@@ -57,6 +57,7 @@ export default function CameraScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const { session, isPremium } = useAuth();
+  const insets = useSafeAreaInsets();
 
   console.log('📱 カメラ画面:', { isPremium, facing });
 
@@ -134,45 +135,6 @@ export default function CameraScreen() {
     setShowConfirmModal(true);
   };
 
-  const confirmAndAnalyze = async (imageUri: string) => {
-    try {
-      setIsAnalyzing(true);
-      
-      // ユーザープロファイルを取得
-      const userProfile = await UserProfileService.getProfile();
-      
-      // openai.tsの統合された関数を使用
-      const { analyzeFoodImage } = await import('../../lib/openai');
-      const result = await analyzeFoodImage(imageUri, userProfile);
-      
-      // 結果画面に遷移
-      router.push({
-        pathname: '/analysis-result',
-        params: {
-          imageUri,
-          analysisResult: JSON.stringify(result),
-          isPremium: isPremium.toString(),
-        },
-      });
-    } catch (error) {
-      console.error('解析エラー:', error);
-      
-      // より具体的なエラーメッセージ
-      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
-      
-      Alert.alert(
-        '解析に失敗しました',
-        errorMessage,
-        [
-          { text: 'キャンセル', style: 'cancel' },
-          { text: 'もう一度試す', onPress: () => confirmAndAnalyze(imageUri) },
-        ]
-      );
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   const confirmImage = () => {
     setShowConfirmModal(false);
     setShowMealModal(true);
@@ -219,24 +181,22 @@ export default function CameraScreen() {
       // ユーザープロフィールを取得
       const userProfile = await UserProfileService.getProfile();
 
-      // ゲストユーザーの場合は一時的なIDを使用
-      const userId = session?.user?.id || 'guest_user';
-
-      // AI解析を実行
-      const result = await processMealAnalysis(
+      // AI解析を実行（保存なし）
+      const analysisResult = await analyzeMealImage(
         capturedImage,
-        mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
-        userId,
         userProfile,
         isPremium
       );
 
-      // 解析結果画面に遷移
+      // 解析結果画面に遷移（保存なしフラグ付き）
       router.push({
         pathname: '/analysis-result' as any,
         params: {
-          mealRecordId: result.mealRecord.id,
-          analysisData: JSON.stringify(result.analysisResult)
+          imageUri: capturedImage,
+          mealTiming: mealType,
+          analysisResult: JSON.stringify(analysisResult),
+          isPremium: isPremium.toString(),
+          saveToHistory: 'false' // 履歴保存フラグ
         }
       });
 
@@ -268,21 +228,25 @@ export default function CameraScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
       
-      {/* Header - 絶対位置で配置 */}
-      <View style={styles.header}>
+      {/* Header - SafeAreaを考慮した絶対位置で配置 */}
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
           <X size={24} color="white" />
         </TouchableOpacity>
         
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>食事を撮影</Text>
-          {isPremium && (
+          {isPremium ? (
             <View style={styles.premiumBadge}>
               <Sparkles size={12} color="#FFD700" />
-              <Text style={styles.premiumText}>Premium</Text>
+              <Text style={styles.premiumText}>無制限解析</Text>
+            </View>
+          ) : (
+            <View style={styles.limitBadge}>
+              <Text style={styles.limitText}>1日3回まで</Text>
             </View>
           )}
         </View>
@@ -299,8 +263,8 @@ export default function CameraScreen() {
         </Text>
       </View>
 
-      {/* Controls - 絶対位置で配置 */}
-      <View style={styles.controls}>
+      {/* Controls - SafeAreaを考慮した絶対位置で配置 */}
+      <View style={[styles.controls, { paddingBottom: insets.bottom + 40 }]}>
         <TouchableOpacity style={styles.libraryButton} onPress={pickImageFromLibrary}>
           <ImageIcon size={24} color="white" />
           <Text style={styles.libraryButtonText}>ライブラリ</Text>
@@ -341,10 +305,7 @@ export default function CameraScreen() {
                 <Text style={styles.retakeButtonText}>撮り直し</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.confirmButton} onPress={() => {
-                setShowConfirmModal(false);
-                confirmAndAnalyze(capturedImage as string);
-              }}>
+              <TouchableOpacity style={styles.confirmButton} onPress={confirmImage}>
                 <Check size={20} color="white" />
                 <Text style={styles.confirmButtonText}>この写真を使用</Text>
               </TouchableOpacity>
@@ -407,7 +368,7 @@ export default function CameraScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -465,7 +426,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 16,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   closeButton: {
@@ -514,7 +474,7 @@ const styles = StyleSheet.create({
   },
   controls: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -698,5 +658,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  limitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  limitText: {
+    fontSize: 10,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: 'white',
   },
 });

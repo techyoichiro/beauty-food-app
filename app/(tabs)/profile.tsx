@@ -11,12 +11,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star } from 'lucide-react-native';
+import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star, Code } from 'lucide-react-native';
 import { router } from 'expo-router';
 import PremiumModal from '@/components/PremiumModal';
 import { UserProfileService, BEAUTY_CATEGORIES, BEAUTY_LEVELS, ExtendedUserProfile } from '../../lib/meal-service';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
+import BeautyStatsService from '../../lib/beauty-stats-service';
+import { supabase } from '../../lib/supabase';
 
 const beautyCategories = [
   { id: 'skin_care', label: '美肌', selected: true },
@@ -36,11 +38,53 @@ export default function ProfileScreen() {
   const [userProfile, setUserProfile] = useState<ExtendedUserProfile | null>(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const isFreePlan = true;
+  const [premiumStats, setPremiumStats] = useState<any>(null);
+  const { session, isPremium, premiumLoading, refreshPremiumStatus } = useAuth();
+  
+  // プレミアム状態の複数ソースチェック
+  const userMetadataPremium = session?.user?.user_metadata?.premium === true;
+  const actualIsPremium = isPremium || userMetadataPremium;
+  const isFreePlan = !actualIsPremium;
+  
+  // デバッグ用：プレミアム状態の詳細表示
+  useEffect(() => {
+    console.log('🎯 プロフィール画面 プレミアム状態統合:', {
+      authContextIsPremium: isPremium,
+      userMetadataPremium,
+      actualIsPremium,
+      isFreePlan
+    });
+  }, [isPremium, userMetadataPremium, actualIsPremium, isFreePlan]);
+  
+  // デバッグ用: プレミアム状態の詳細ログ
+  useEffect(() => {
+    console.log('🎯 プロフィール画面 Premium状態詳細:', {
+      isPremium,
+      premiumLoading,
+      isFreePlan,
+      sessionExists: !!session,
+      userId: session?.user?.id?.substring(0, 8) + '...' || 'なし',
+      userMetadata: session?.user?.user_metadata,
+      authUserMetadataPremium: session?.user?.user_metadata?.premium
+    });
+    
+    // 強制的にプレミアム状態をチェック
+    if (session?.user?.user_metadata?.premium === true) {
+      console.log('🧪 Auth metadataでプレミアム検出、しかしisPremiumは:', isPremium);
+    }
+  }, [isPremium, premiumLoading, session]);
 
   useEffect(() => {
     loadUserProfile();
   }, []);
+
+  useEffect(() => {
+    if (actualIsPremium && session?.user?.id) {
+      console.log('🔄 プレミアム統計を読み込み中...');
+      loadPremiumStats();
+    }
+  }, [actualIsPremium, session]);
+
 
   const loadUserProfile = async () => {
     try {
@@ -50,6 +94,23 @@ export default function ProfileScreen() {
       console.error('プロフィール読み込みエラー:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPremiumStats = async () => {
+    try {
+      if (!session?.user?.id) return;
+      
+      const monthlyReport = await BeautyStatsService.generateMonthlyReport(session.user.id);
+      if (monthlyReport) {
+        setPremiumStats({
+          averageScore: monthlyReport.averageScore,
+          goalAchievement: monthlyReport.averageScore >= 80 ? 75 : 50, // 仮の達成率計算
+          topCategory: '美肌' // 実装では最高スコアカテゴリーを取得
+        });
+      }
+    } catch (error) {
+      console.error('プレミアム統計読み込みエラー:', error);
     }
   };
 
@@ -239,25 +300,48 @@ export default function ProfileScreen() {
         </View>
 
         {/* Plan Status */}
-        {isFreePlan ? (
-          <TouchableOpacity 
-            style={styles.planCard} 
-            onPress={() => setShowPremiumModal(true)}
-          >
-            <LinearGradient
-              colors={['#fbbf24', '#f59e0b']}
-              style={styles.planGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+        {premiumLoading ? (
+          <View style={styles.loadingPlanCard}>
+            <Text style={styles.loadingPlanText}>プレミアム状態を確認中...</Text>
+          </View>
+        ) : isFreePlan ? (
+          <>
+            <TouchableOpacity 
+              style={styles.planCard} 
+              onPress={() => setShowPremiumModal(true)}
             >
-              <Crown size={24} color="white" />
-              <View style={styles.planInfo}>
-                <Text style={styles.planTitle}>プレミアムプランで</Text>
-                <Text style={styles.planSubtitle}>無制限解析を始めよう</Text>
+              <LinearGradient
+                colors={['#fbbf24', '#f59e0b']}
+                style={styles.planGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Crown size={24} color="white" />
+                <View style={styles.planInfo}>
+                  <Text style={styles.planTitle}>プレミアムプランで</Text>
+                  <Text style={styles.planSubtitle}>無制限解析を始めよう</Text>
+                </View>
+                <ChevronRight size={20} color="white" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* 機能比較ボタン */}
+            <TouchableOpacity 
+              style={styles.featureCompareButton}
+              onPress={() => router.push('/premium-features' as any)}
+            >
+              <View style={styles.compareButtonContent}>
+                <View style={styles.compareIcon}>
+                  <TrendingUp size={20} color="#ec4899" />
+                </View>
+                <View style={styles.compareTexts}>
+                  <Text style={styles.compareTitle}>機能比較を見る</Text>
+                  <Text style={styles.compareSubtitle}>無料版 vs プレミアム版の詳細比較</Text>
+                </View>
+                <ChevronRight size={16} color="#6b7280" />
               </View>
-              <ChevronRight size={20} color="white" />
-            </LinearGradient>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </>
         ) : (
           <View style={styles.premiumCard}>
             <Crown size={24} color="#f59e0b" />
@@ -274,36 +358,44 @@ export default function ProfileScreen() {
             {isFreePlan && <Crown size={16} color="#f59e0b" />}
           </View>
           
-          {isFreePlan ? (
+          {premiumLoading ? (
+            <View style={styles.loadingStatsContainer}>
+              <Text style={styles.loadingStatsText}>統計データを読み込み中...</Text>
+            </View>
+          ) : isFreePlan ? (
             <TouchableOpacity 
               style={styles.premiumFeature}
-              onPress={() => setShowPremiumModal(true)}
+              onPress={() => router.push('/premium-reports' as any)}
             >
               <Text style={styles.premiumFeatureText}>
                 プレミアムプランで{'\n'}詳細な美容統計を確認
               </Text>
               <Text style={styles.premiumFeatureSubtext}>
-                • 月間平均スコア推移{'\n'}
+                • 週次・月次レポート{'\n'}
                 • 美容カテゴリー別分析{'\n'}
-                • 目標達成率
+                • 栄養バランス分析
               </Text>
+              <Text style={styles.previewText}>📊 レポート画面を見る</Text>
               <ChevronRight size={16} color="#6b7280" />
             </TouchableOpacity>
           ) : (
-            <View style={styles.statsGrid}>
+            <TouchableOpacity 
+              style={styles.statsGrid}
+              onPress={() => router.push('/premium-reports' as any)}
+            >
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>82</Text>
+                <Text style={styles.statValue}>{premiumStats?.averageScore || 82}</Text>
                 <Text style={styles.statLabel}>今月平均スコア</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>75%</Text>
+                <Text style={styles.statValue}>{premiumStats?.goalAchievement || 75}%</Text>
                 <Text style={styles.statLabel}>目標達成率</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>美肌</Text>
+                <Text style={styles.statValue}>{premiumStats?.topCategory || '美肌'}</Text>
                 <Text style={styles.statLabel}>最高カテゴリー</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -431,6 +523,92 @@ export default function ProfileScreen() {
             <Text style={styles.settingLabel}>ヘルプ・サポート</Text>
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
+
+          {/* 開発者メニュー（開発時のみ表示） */}
+          {__DEV__ && (
+            <View style={styles.devSection}>
+              <Text style={[styles.settingLabel, styles.devSectionTitle]}>🔧 開発者メニュー</Text>
+              
+              {/* プレミアム状態切り替え */}
+              <TouchableOpacity 
+                style={[styles.settingItem, styles.devSettingItem]}
+                onPress={async () => {
+                  try {
+                    // 現在の状態を反転
+                    const newPremiumState = !actualIsPremium;
+                    
+                    // user_metadataを更新
+                    const { error } = await supabase.auth.updateUser({
+                      data: { premium: newPremiumState }
+                    });
+                    
+                    if (error) throw error;
+                    
+                    // プレミアム状態を更新
+                    await refreshPremiumStatus();
+                    
+                    Toast.show({
+                      type: 'success',
+                      text1: '開発者設定',
+                      text2: `プレミアム状態を${newPremiumState ? 'ON' : 'OFF'}に変更しました`,
+                    });
+                  } catch (error) {
+                    console.error('プレミアム状態切り替えエラー:', error);
+                    Toast.show({
+                      type: 'error',
+                      text1: 'エラー',
+                      text2: 'プレミアム状態の切り替えに失敗しました',
+                    });
+                  }
+                }}
+              >
+                <Crown size={20} color={actualIsPremium ? "#f59e0b" : "#6b7280"} />
+                <Text style={[styles.settingLabel, styles.devSettingLabel]}>
+                  プレミアム状態切り替え
+                </Text>
+                <View style={styles.devStatusContainer}>
+                  <Text style={[styles.devStatusText, { color: actualIsPremium ? "#f59e0b" : "#6b7280" }]}>
+                    {actualIsPremium ? "ON" : "OFF"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              
+              {/* データリセット */}
+              <TouchableOpacity 
+                style={[styles.settingItem, styles.devSettingItem]}
+                onPress={() => router.push('/dev-reset' as any)}
+              >
+                <Code size={20} color="#f59e0b" />
+                <Text style={[styles.settingLabel, styles.devSettingLabel]}>データリセット</Text>
+                <ChevronRight size={20} color="#f59e0b" />
+              </TouchableOpacity>
+              
+              {/* プレミアム状態強制更新 */}
+              <TouchableOpacity 
+                style={[styles.settingItem, styles.devSettingItem]}
+                onPress={async () => {
+                  try {
+                    await refreshPremiumStatus();
+                    Toast.show({
+                      type: 'success',
+                      text1: '開発者設定',
+                      text2: 'プレミアム状態を強制更新しました',
+                    });
+                  } catch (error) {
+                    Toast.show({
+                      type: 'error',
+                      text1: 'エラー',
+                      text2: 'プレミアム状態の更新に失敗しました',
+                    });
+                  }
+                }}
+              >
+                <TrendingUp size={20} color="#f59e0b" />
+                <Text style={[styles.settingLabel, styles.devSettingLabel]}>プレミアム状態更新</Text>
+                <ChevronRight size={20} color="#f59e0b" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
 
@@ -745,5 +923,117 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'NotoSansJP-Bold',
     color: '#1f2937',
+  },
+  featureCompareButton: {
+    backgroundColor: 'white',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  compareButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  compareIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#fce7f3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  compareTexts: {
+    flex: 1,
+  },
+  compareTitle: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  compareSubtitle: {
+    fontSize: 12,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+  },
+  previewText: {
+    fontSize: 12,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#ec4899',
+    marginTop: 8,
+  },
+  devSettingItem: {
+    backgroundColor: '#fef3c7',
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  devSettingLabel: {
+    color: '#92400e',
+    fontFamily: 'NotoSansJP-SemiBold',
+  },
+  loadingPlanCard: {
+    backgroundColor: '#f3f4f6',
+    marginHorizontal: 20,
+    marginBottom: 24,
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  loadingPlanText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+  },
+  loadingStatsContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingStatsText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+  },
+  devSection: {
+    backgroundColor: 'white',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  devSectionTitle: {
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-Bold',
+    color: '#f59e0b',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  devStatusContainer: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  devStatusText: {
+    fontSize: 12,
+    fontFamily: 'NotoSansJP-Bold',
   },
 });

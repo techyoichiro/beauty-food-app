@@ -23,12 +23,33 @@ type AnalysisResult = FoodAnalysisResult;
 
 export default function AnalysisResultScreen() {
   const { mealRecordId, analysisResult, imageUri, isPremium } = useLocalSearchParams();
-  const { user } = useAuth();
+  const { user, isPremium: authIsPremium } = useAuth();
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [currentImageUri, setCurrentImageUri] = useState<string>('');
   const [currentIsPremium, setCurrentIsPremium] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+
+  // 実際のプレミアム状態を計算（AuthContextの状態を優先）
+  const actualIsPremium = authIsPremium || currentIsPremium || isPremium === 'true';
+
+  // AuthContextのプレミアム状態が変更された時にローカル状態も更新
+  useEffect(() => {
+    if (authIsPremium && !currentIsPremium) {
+      console.log('🔄 AuthContextのプレミアム状態変更を検出、ローカル状態を更新');
+      setCurrentIsPremium(true);
+    }
+  }, [authIsPremium]);
+
+  // デバッグ用：プレミアム状態をログ出力
+  useEffect(() => {
+    console.log('🎯 プレミアム状態デバッグ:', {
+      authIsPremium,
+      currentIsPremium,
+      isPremiumParam: isPremium,
+      actualIsPremium
+    });
+  }, [authIsPremium, currentIsPremium, isPremium, actualIsPremium]);
 
   useEffect(() => {
     const loadAnalysisResult = async () => {
@@ -54,9 +75,9 @@ export default function AnalysisResultScreen() {
           await AsyncStorage.setItem('latest_analysis_image', typeof imageUri === 'string' ? imageUri : '');
           await AsyncStorage.setItem('latest_analysis_premium', isPremium === 'true' ? 'true' : 'false');
           
-          // 現在の状態を更新
+          // 現在の状態を更新（AuthContextの状態も考慮）
           setCurrentImageUri(typeof imageUri === 'string' ? imageUri : '');
-          setCurrentIsPremium(isPremium === 'true');
+          setCurrentIsPremium(authIsPremium || isPremium === 'true');
           
           setAnalysis(parsedData);
           setLoading(false);
@@ -81,9 +102,9 @@ export default function AnalysisResultScreen() {
             overallScore: parsedData.beauty_score?.overall || 0
           });
           
-          // 状態を復元
+          // 状態を復元（AuthContextの状態も考慮）
           setCurrentImageUri(savedImageUri || '');
-          setCurrentIsPremium(savedIsPremium === 'true');
+          setCurrentIsPremium(authIsPremium || savedIsPremium === 'true');
           setAnalysis(parsedData);
           setLoading(false);
           return;
@@ -132,14 +153,14 @@ export default function AnalysisResultScreen() {
                 {/* 解析品質バッジ */}
                 <View style={styles.qualityBadge}>
                   <Text style={styles.qualityText}>
-                    {(currentIsPremium || isPremium === 'true') ? '🔥 Premium解析' : '✨ Standard解析'}
+                    {actualIsPremium ? '🔥 Premium解析' : '✨ Standard解析'}
                   </Text>
                 </View>
               </View>
               <View style={styles.imageInfo}>
                 <Text style={styles.imageCaption}>解析対象の食事</Text>
                 <Text style={styles.analysisInfo}>
-                  {(currentIsPremium || isPremium === 'true')
+                  {actualIsPremium
                     ? 'GPT-4o・高解像度で解析済み' 
                     : 'GPT-4o-mini・効率的解析済み'
                   }
@@ -320,7 +341,7 @@ export default function AnalysisResultScreen() {
                     {/* 解析品質バッジ */}
                     <View style={styles.qualityBadge}>
                       <Text style={styles.qualityText}>
-                        {(currentIsPremium || isPremium === 'true') ? '🔥 Premium解析' : '✨ Standard解析'}
+                        {actualIsPremium ? '🔥 Premium解析' : '✨ Standard解析'}
                       </Text>
                     </View>
                   </View>
@@ -491,7 +512,7 @@ export default function AnalysisResultScreen() {
               </TouchableOpacity>
               
               {/* プレミアムアップグレード案内（無料ユーザーのみ） */}
-              {isPremium !== 'true' && (
+              {!actualIsPremium && (
                 <TouchableOpacity 
                   style={styles.upgradeCard} 
                   onPress={() => setShowPremiumModal(true)}

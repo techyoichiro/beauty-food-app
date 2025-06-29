@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { FoodAnalysisResult } from '../../lib/food-analysis';
 import { UserProfileService, ExtendedUserProfile, getUserMealRecords, MealRecord } from '../../lib/meal-service';
 import { useAuth } from '../../contexts/AuthContext';
+import WeeklyAnalysisService, { WeeklyAnalysisData } from '../../lib/weekly-analysis-service';
 
 const { width } = Dimensions.get('window');
 
@@ -176,10 +177,11 @@ export default function HistoryScreen() {
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily');
   const [userProfile, setUserProfile] = useState<ExtendedUserProfile | null>(null);
   const [mealRecords, setMealRecords] = useState<MealRecord[]>([]);
+  const [weeklyAnalysis, setWeeklyAnalysis] = useState<WeeklyAnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { session } = useAuth();
-  const isFreePlan = true;
+  const { session, isPremium } = useAuth();
+  const isFreePlan = !isPremium;
 
   useEffect(() => {
     loadData();
@@ -197,10 +199,19 @@ export default function HistoryScreen() {
         // 認証済みユーザーの場合は実際のデータを取得
         const records = await getUserMealRecords(session.user.id, 20);
         setMealRecords(records);
+        
+        // 週間分析データを取得
+        const weeklyData = await WeeklyAnalysisService.getWeeklyAnalysis(session.user.id);
+        setWeeklyAnalysis(weeklyData);
+        console.log('📊 週間分析データ取得完了:', weeklyData);
       } else {
         // ゲストユーザーの場合はダミーデータを生成
         const dummyRecords = generateDummyMealRecords(profile);
         setMealRecords(dummyRecords);
+        
+        // ゲスト用週間分析データを取得
+        const weeklyData = await WeeklyAnalysisService.getWeeklyAnalysis('guest');
+        setWeeklyAnalysis(weeklyData);
       }
     } catch (error) {
       console.error('データ取得エラー:', error);
@@ -214,6 +225,10 @@ export default function HistoryScreen() {
       };
       setUserProfile(defaultProfile);
       setMealRecords(generateDummyMealRecords(defaultProfile));
+      
+      // エラー時はサンプル週間データを表示
+      const weeklyData = await WeeklyAnalysisService.getWeeklyAnalysis('guest');
+      setWeeklyAnalysis(weeklyData);
     } finally {
       setLoading(false);
     }
@@ -296,14 +311,18 @@ export default function HistoryScreen() {
   const days = ['月', '火', '水', '木', '金', '土', '日'];
 
   const renderChart = () => {
-    const maxScore = Math.max(...weeklyScores);
+    if (!weeklyAnalysis) return null;
+    
+    const scores = weeklyAnalysis.dailyScores.map(day => day.averageScore);
+    const maxScore = Math.max(...scores, 100);
     const chartHeight = 120;
+    const dayLabels = ['月', '火', '水', '木', '金', '土', '日'];
     
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.chartTitle}>週間美容スコア推移</Text>
         <View style={styles.chart}>
-          {weeklyScores.map((score, index) => (
+          {scores.map((score, index) => (
             <View key={index} style={styles.chartBar}>
               <View 
                 style={[
@@ -314,8 +333,8 @@ export default function HistoryScreen() {
                   }
                 ]} 
               />
-              <Text style={styles.barValue}>{score}</Text>
-              <Text style={styles.barLabel}>{days[index]}</Text>
+              <Text style={styles.barValue}>{score || 0}</Text>
+              <Text style={styles.barLabel}>{dayLabels[index]}</Text>
             </View>
           ))}
         </View>
@@ -364,7 +383,6 @@ export default function HistoryScreen() {
             {meal.score}
           </Text>
         </View>
-        <Text style={styles.advice} numberOfLines={1}>{meal.advice}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -444,21 +462,78 @@ export default function HistoryScreen() {
             {renderChart()}
             
             {/* Weekly Stats */}
-            <View style={styles.statsSection}>
-              <Text style={styles.statsTitle}>今週の統計</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
-                  <TrendingUp size={24} color="#10b981" />
-                  <Text style={styles.statValue}>78</Text>
-                  <Text style={styles.statLabel}>平均スコア</Text>
+            {weeklyAnalysis && (
+              <View style={styles.statsSection}>
+                <Text style={styles.statsTitle}>今週の統計</Text>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statCard}>
+                    <TrendingUp size={24} color="#10b981" />
+                    <Text style={styles.statValue}>{weeklyAnalysis.weeklyStats.averageScore}</Text>
+                    <Text style={styles.statLabel}>平均スコア</Text>
+                  </View>
+                  <View style={styles.statCard}>
+                    <BarChart3 size={24} color="#ec4899" />
+                    <Text style={styles.statValue}>{weeklyAnalysis.weeklyStats.totalMeals}</Text>
+                    <Text style={styles.statLabel}>解析回数</Text>
+                  </View>
                 </View>
-                <View style={styles.statCard}>
-                  <BarChart3 size={24} color="#ec4899" />
-                  <Text style={styles.statValue}>12</Text>
-                  <Text style={styles.statLabel}>解析回数</Text>
+                
+                {/* 追加統計情報 */}
+                <View style={styles.additionalStats}>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statRowLabel}>最高の日:</Text>
+                    <Text style={styles.statRowValue}>{weeklyAnalysis.weeklyStats.bestDay}</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statRowLabel}>改善傾向:</Text>
+                    <Text style={[
+                      styles.statRowValue,
+                      { color: weeklyAnalysis.weeklyStats.improvementTrend === 'up' ? '#10b981' : 
+                               weeklyAnalysis.weeklyStats.improvementTrend === 'down' ? '#ef4444' : '#6b7280' }
+                    ]}>
+                      {weeklyAnalysis.weeklyStats.improvementTrend === 'up' ? '↗️ 向上中' : 
+                       weeklyAnalysis.weeklyStats.improvementTrend === 'down' ? '↘️ 下降中' : '→ 安定'}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
+
+            {/* レコメンデーション */}
+            {weeklyAnalysis && weeklyAnalysis.recommendations.length > 0 && (
+              <View style={styles.recommendationsSection}>
+                <Text style={styles.statsTitle}>今週のアドバイス</Text>
+                {weeklyAnalysis.recommendations.map((recommendation, index) => (
+                  <View key={index} style={styles.recommendationCard}>
+                    <Text style={styles.recommendationText}>{recommendation}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* 達成度 */}
+            {weeklyAnalysis && weeklyAnalysis.achievements.length > 0 && (
+              <View style={styles.achievementsSection}>
+                <Text style={styles.statsTitle}>今週の達成度</Text>
+                <View style={styles.achievementsGrid}>
+                  {weeklyAnalysis.achievements.map((achievement, index) => (
+                    <View key={index} style={[
+                      styles.achievementCard,
+                      { opacity: achievement.achieved ? 1 : 0.5 }
+                    ]}>
+                      <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                      <Text style={styles.achievementTitle}>{achievement.title}</Text>
+                      <Text style={styles.achievementDescription}>{achievement.description}</Text>
+                      {achievement.achieved && (
+                        <View style={styles.achievedBadge}>
+                          <Text style={styles.achievedText}>達成!</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
             {/* Premium Feature */}
             {isFreePlan && (
@@ -599,9 +674,9 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   mealTime: {
-    fontSize: 12,
-    fontFamily: 'Poppins-Medium',
-    color: '#6b7280',
+    fontSize: 16,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#374151',
   },
   scoreContainer: {
     flexDirection: 'row',
@@ -615,13 +690,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   score: {
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: 'Poppins-Bold',
-  },
-  advice: {
-    fontSize: 12,
-    fontFamily: 'NotoSansJP-Regular',
-    color: '#ec4899',
   },
   chartContainer: {
     backgroundColor: 'white',
@@ -765,5 +835,107 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  additionalStats: {
+    backgroundColor: 'white',
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  statRowLabel: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Medium',
+    color: '#6b7280',
+  },
+  statRowValue: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#1f2937',
+  },
+  recommendationsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  recommendationCard: {
+    backgroundColor: '#f0f9ff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0ea5e9',
+  },
+  recommendationText: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#0f172a',
+    lineHeight: 20,
+  },
+  achievementsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  achievementsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  achievementCard: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    width: '48%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  achievementIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  achievementTitle: {
+    fontSize: 14,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  achievementDescription: {
+    fontSize: 12,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  achievedBadge: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  achievedText: {
+    fontSize: 10,
+    fontFamily: 'NotoSansJP-Bold',
+    color: 'white',
   },
 });

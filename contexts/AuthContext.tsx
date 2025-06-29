@@ -57,6 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // セッション取得
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔑 セッション取得結果:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id?.substring(0, 8) + '...' || 'なし'
+      });
+      
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -75,11 +81,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('❌ 既存ユーザーレコード処理エラー:', userRecordError);
           // ユーザーレコード作成に失敗しても、アプリの初期化は継続
         }
+        
+        // プレミアム状態を取得（ログインユーザーのみ）
+        console.log('🔄 初期化時のプレミアム状態確認開始');
+        await refreshPremiumStatus();
+        console.log('✅ 初期化時のプレミアム状態確認完了');
+      } else {
+        console.log('👤 未ログインユーザー: プレミアム状態をfalseに設定');
+        setIsPremium(false);
       }
       
-      // プレミアム状態を取得
-      await refreshPremiumStatus();
-      
+      console.log('🏁 アプリ初期化完了');
       setLoading(false);
     } catch (error) {
       console.error('App initialization failed:', error);
@@ -104,6 +116,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
             console.error('Failed to initialize user:', error);
           }
+        } else {
+          // ログアウト時はプレミアム状態をfalseに設定
+          console.log('👤 ログアウト: プレミアム状態をfalseに設定');
+          setIsPremium(false);
         }
         
         setLoading(false);
@@ -422,12 +438,103 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // RevenueCat関連のメソッド実装
   const refreshPremiumStatus = async (): Promise<void> => {
     try {
+      console.log('🔄 refreshPremiumStatus 開始');
       setPremiumLoading(true);
-      const premiumStatus = await revenueCatService.isPremium();
-      setIsPremium(premiumStatus);
-      console.log('Premium status updated:', premiumStatus);
+      
+      // 手動設定のプレミアムステータスをチェック（テスト用）
+      let authMetadataPremium = false;
+      let usersTablePremium = false;
+      
+      // 1. Auth user_metadata をチェック
+      if (session?.user?.user_metadata?.premium) {
+        authMetadataPremium = true;
+        console.log('🧪 Auth metadata プレミアム設定検出:', authMetadataPremium);
+      }
+      
+      // 2. users テーブルの is_premium カラムをチェック（常に実行）
+      if (session?.user?.id) {
+        try {
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('is_premium, display_name')
+            .eq('auth_user_id', session.user.id)
+            .single();
+          
+          console.log('🧪 users テーブル確認結果:', {
+            userId: session.user.id,
+            userData: userData,
+            error: userError,
+            isPremium: userData?.is_premium
+          });
+          
+          if (!userError && userData?.is_premium === true) {
+            usersTablePremium = true;
+            console.log('🧪 users テーブル プレミアム設定検出:', usersTablePremium);
+          }
+        } catch (error) {
+          console.log('users テーブル確認エラー:', error);
+        }
+      }
+      
+      // どちらかがtrueならプレミアム
+      const manualPremiumStatus = authMetadataPremium || usersTablePremium;
+      
+      // RevenueCatのプレミアムステータスをチェック
+      const revenueCatPremiumStatus = await revenueCatService.isPremium();
+      
+      // どちらかでプレミアムならプレミアム扱い
+      const finalPremiumStatus = manualPremiumStatus || revenueCatPremiumStatus;
+      
+      setIsPremium(finalPremiumStatus);
+      
+      console.log('🎯 Premium status updated:', {
+        authMetadata: authMetadataPremium,
+        usersTable: usersTablePremium,
+        manual: manualPremiumStatus,
+        revenueCat: revenueCatPremiumStatus,
+        final: finalPremiumStatus
+      });
+      
+      console.log('✅ refreshPremiumStatus 完了, 新しい状態:', finalPremiumStatus);
     } catch (error) {
       console.error('Failed to refresh premium status:', error);
+      
+      // RevenueCatエラー時は手動設定のみチェック
+      let fallbackAuthMetadata = false;
+      let fallbackUsersTable = false;
+      
+      // Auth user_metadata をチェック
+      if (session?.user?.user_metadata?.premium) {
+        fallbackAuthMetadata = true;
+      }
+      
+      // users テーブルをチェック（常に実行）
+      if (session?.user?.id) {
+        try {
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('is_premium')
+            .eq('auth_user_id', session.user.id)
+            .single();
+          
+          if (!userError && userData?.is_premium === true) {
+            fallbackUsersTable = true;
+          }
+        } catch (error) {
+          console.log('フォールバック時の users テーブル確認エラー:', error);
+        }
+      }
+      
+      const fallbackPremiumStatus = fallbackAuthMetadata || fallbackUsersTable;
+      
+      if (fallbackPremiumStatus) {
+        setIsPremium(true);
+        console.log('🧪 RevenueCatエラー時、手動プレミアム設定を使用:', {
+          authMetadata: fallbackAuthMetadata,
+          usersTable: fallbackUsersTable,
+          final: fallbackPremiumStatus
+        });
+      }
     } finally {
       setPremiumLoading(false);
     }

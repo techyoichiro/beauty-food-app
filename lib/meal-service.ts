@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { analyzeFoodImage, saveAnalysisResult, UserProfile } from './food-analysis';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BeautyStatsService from './beauty-stats-service';
 
 export interface ExtendedUserProfile extends UserProfile {
   weeklyGoalScore: number;
@@ -56,9 +57,11 @@ export const uploadMealImage = async (
     // 認証済みユーザーの場合はプライベートStorageにアップロード
     console.log('認証済みユーザー: プライベートStorageアップロード中...');
     
-    // 画像をBlobに変換
-    const response = await fetch(imageUri);
-    const blob = await response.blob();
+    // React Nativeでの画像処理準備
+    console.log('🔄 React Native画像処理開始:', {
+      imageUri: imageUri.substring(0, 100) + '...',
+      isDataUrl: imageUri.startsWith('data:')
+    });
     
     // ファイル名を生成（ユーザーフォルダ内）
     const timestamp = Date.now();
@@ -66,22 +69,150 @@ export const uploadMealImage = async (
     const fileName = `${userId}/${timestamp}_${randomId}.jpg`;
     
     // プライベートStorageにアップロード
-    const { data, error } = await supabase.storage
-      .from('meal-images')
-      .upload(fileName, blob, {
-        contentType: 'image/jpeg',
-        cacheControl: '3600',
-        upsert: false
+    console.log('📤 ファイルアップロード試行:', {
+      bucket: 'meal-images',
+      fileName: fileName,
+      userId: userId,
+      method: 'Uint8Array'
+    });
+    
+    // React NativeでのBlobアップロードに問題があるため、常にUint8Arrayアプローチを使用
+    let data, error;
+    
+    console.log('🔄 Uint8Arrayアプローチでアップロード実行');
+    
+    if (!imageUri.startsWith('data:')) {
+      // ファイルURIの場合、Base64として読み取り直接アップロード
+      const { readAsStringAsync, EncodingType } = await import('expo-file-system');
+      const base64Data = await readAsStringAsync(imageUri, {
+        encoding: EncodingType.Base64,
       });
+      
+      // Base64文字列を直接Uint8Arrayに変換
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      console.log('🔄 Uint8Array変換完了:', {
+        originalBase64Length: base64Data.length,
+        uint8ArrayLength: bytes.length,
+        fileSizeMB: (bytes.length / (1024 * 1024)).toFixed(2)
+      });
+      
+      // Uint8ArrayでアップロードATP
+      const uploadResult = await supabase.storage
+        .from('meal-images')
+        .upload(fileName, bytes, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      data = uploadResult.data;
+      error = uploadResult.error;
+    } else {
+      // すでにBase64の場合
+      const base64Data = imageUri.split(',')[1];
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      console.log('🔄 Base64 -> Uint8Array変換完了:', {
+        base64Length: base64Data.length,
+        uint8ArrayLength: bytes.length,
+        fileSizeMB: (bytes.length / (1024 * 1024)).toFixed(2)
+      });
+      
+      const uploadResult = await supabase.storage
+        .from('meal-images')
+        .upload(fileName, bytes, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      data = uploadResult.data;
+      error = uploadResult.error;
+    }
+    
+    console.log('📤 アップロード試行結果:', {
+      success: !error,
+      dataPath: data?.path,
+      errorMessage: error?.message,
+      errorDetails: error,
+      method: 'Uint8Array'
+    });
     
     if (error) {
-      console.error('プライベートアップロードエラー:', error);
-      throw new Error(`画像のアップロードに失敗しました: ${error.message}`);
+      console.error('❌ プライベートアップロードエラー:', {
+        error: error,
+        message: error.message,
+        fileName: fileName,
+        bucket: 'meal-images'
+      });
+      
+      // Storageアップロード失敗時はBase64で代替
+      console.log('🔄 Storageアップロード失敗、Base64で代替保存');
+      
+      try {
+        // React Native用のBase64変換
+        if (imageUri.startsWith('data:')) {
+          // すでにBase64の場合はそのまま返す
+          console.log('✅ Base64代替保存完了（既にBase64形式）');
+          return imageUri;
+        } else {
+          // ファイルURIをBase64に変換
+          const { readAsStringAsync, EncodingType } = await import('expo-file-system');
+          const base64Data = await readAsStringAsync(imageUri, {
+            encoding: EncodingType.Base64,
+          });
+          const dataUrl = `data:image/jpeg;base64,${base64Data}`;
+          console.log('✅ Base64代替保存完了（ファイルから変換）');
+          return dataUrl;
+        }
+      } catch (base64Error) {
+        console.error('Base64代替保存も失敗:', base64Error);
+        throw new Error('画像の保存に失敗しました。ネットワーク接続を確認してください。');
+      }
+    }
+    
+    // アップロード直後にファイル存在確認
+    try {
+      console.log('🔍 アップロード後のファイル存在確認中...');
+      const { data: listData, error: listError } = await supabase.storage
+        .from('meal-images')
+        .list(userId, {
+          limit: 100,
+          search: fileName.split('/')[1] // ファイル名のみで検索
+        });
+      
+      if (listError) {
+        console.warn('⚠️ ファイル一覧取得エラー:', listError);
+      } else {
+        const uploadedFile = listData?.find(file => file.name === fileName.split('/')[1]);
+        console.log('📁 アップロード後のファイル確認:', {
+          fileName: fileName,
+          fileFound: !!uploadedFile,
+          fileInfo: uploadedFile ? {
+            name: uploadedFile.name,
+            size: uploadedFile.metadata?.size,
+            contentType: uploadedFile.metadata?.mimetype,
+            lastModified: uploadedFile.updated_at
+          } : null,
+          totalFilesInDir: listData?.length || 0
+        });
+      }
+    } catch (verificationError) {
+      console.warn('ファイル存在確認でエラー:', verificationError);
     }
     
     // プライベートファイルのパスを返す（URLではなくパス）
-    console.log('プライベート画像アップロード完了:', data.path);
-    return data.path;
+    console.log('プライベート画像アップロード完了:', data?.path);
+    return data?.path || '';
     
   } catch (error) {
     console.error('画像アップロード失敗:', error);
@@ -95,14 +226,57 @@ export const getSignedImageUrl = async (
   expiresIn: number = 3600 // 1時間
 ): Promise<string> => {
   try {
+    console.log('🔗 署名付きURL生成開始:', {
+      imagePath,
+      expiresIn,
+      bucket: 'meal-images'
+    });
+    
     const { data, error } = await supabase.storage
       .from('meal-images')
       .createSignedUrl(imagePath, expiresIn);
     
     if (error) {
-      console.error('署名付きURL取得エラー:', error);
+      console.error('❌ 署名付きURL取得エラー:', {
+        error,
+        message: error.message,
+        imagePath
+      });
+      
+      // ファイル存在確認
+      try {
+        const pathParts = imagePath.split('/');
+        const userId = pathParts[0];
+        const fileName = pathParts[1];
+        
+        const { data: listData, error: listError } = await supabase.storage
+          .from('meal-images')
+          .list(userId, { limit: 100 });
+        
+        console.log('🔍 ファイル存在確認結果:', {
+          imagePath,
+          userId,
+          fileName,
+          listError: listError?.message,
+          filesFound: listData?.length || 0,
+          targetFileExists: listData?.some(file => file.name === fileName),
+          allFiles: listData?.map(file => ({
+            name: file.name,
+            size: file.metadata?.size,
+            contentType: file.metadata?.mimetype
+          }))
+        });
+      } catch (listingError) {
+        console.error('ファイル存在確認中にエラー:', listingError);
+      }
+      
       throw new Error(`署名付きURLの取得に失敗しました: ${error.message}`);
     }
+    
+    console.log('✅ 署名付きURL生成成功:', {
+      imagePath,
+      signedUrlLength: data.signedUrl.length
+    });
     
     return data.signedUrl;
     
@@ -207,21 +381,14 @@ export const updateMealRecordStatus = async (
   }
 };
 
-// 完全な食事解析フロー
-export const processMealAnalysis = async (
+// AI解析のみを実行（保存は別関数で）
+export const analyzeMealImage = async (
   imageUri: string,
-  mealTiming: 'breakfast' | 'lunch' | 'dinner' | 'snack',
-  userId: string,
   userProfile: UserProfile,
   isPremium: boolean = false
-): Promise<{
-  mealRecord: MealRecord;
-  analysisResult: any;
-}> => {
-  let mealRecord: MealRecord | null = null;
-  
+): Promise<any> => {
   try {
-    console.log('食事解析フロー開始:', { userId, mealTiming });
+    console.log('食事AI解析開始（保存なし）');
     
     // Step 1: まず食べ物判定を行う
     console.log('食べ物判定開始');
@@ -246,51 +413,94 @@ export const processMealAnalysis = async (
     if (!foodDetection.isFood) {
       console.log('食べ物以外を検出:', foodDetection.detectedObject);
       
-      // 画像をアップロードして記録は作成する（履歴に残すため）
-      const imagePath = await uploadMealImage(imageUri, userId);
-      mealRecord = await createMealRecord(userId, imagePath, mealTiming);
-      
       // ユーモラスなレスポンスを生成
       const nonFoodResponse = generateNonFoodResponse(foodDetection.detectedObject || 'object');
       
-      // 特別な解析結果として保存
-      await saveAnalysisResult(
-        mealRecord.id, 
-        nonFoodResponse, 
-        JSON.stringify(nonFoodResponse)
-      );
-      
-      console.log('食べ物以外の解析完了:', mealRecord.id);
-      
-      return {
-        mealRecord,
-        analysisResult: nonFoodResponse
-      };
+      console.log('食べ物以外の解析完了');
+      return nonFoodResponse;
     }
     
     // Step 3: 食べ物の場合は通常の解析フローを続行
-    console.log('食べ物を検出、通常解析開始');
+    console.log('食べ物を検出、AI解析開始');
     
-    // Step 4: 画像をプライベートStorageにアップロード
+    // Step 4: AI解析を実行
+    const { analyzeFoodImage: analyzeFood } = await import('./openai');
+    const analysisResult = await analyzeFood(imageUri, userProfile);
+    
+    console.log('AI解析完了');
+    return analysisResult;
+    
+  } catch (error) {
+    console.error('食事AI解析失敗:', error);
+    throw error;
+  }
+};
+
+// 解析結果を履歴に保存
+export const saveMealToHistory = async (
+  imageUri: string,
+  mealTiming: 'breakfast' | 'lunch' | 'dinner' | 'snack',
+  userId: string,
+  analysisResult: any,
+  isPremium: boolean = false
+): Promise<MealRecord> => {
+  try {
+    console.log('食事履歴保存開始:', { userId, mealTiming });
+    
+    // Step 1: 画像をStorageにアップロード
     const imagePath = await uploadMealImage(imageUri, userId);
     
-    // Step 5: 食事記録を作成
-    mealRecord = await createMealRecord(userId, imagePath, mealTiming);
+    // Step 2: 食事記録を作成
+    const mealRecord = await createMealRecord(userId, imagePath, mealTiming);
     
-    // Step 6: 解析開始をログ出力
-    console.log('AI解析開始:', mealRecord.id);
-    
-    // Step 7: AI解析を実行（元の画像URIを使用）
-    // openai.tsの統合されたanalyzeFoodImage関数を使用
-    const { analyzeFoodImage: analyzeFood } = await import('./openai');
-    const analysisResult = await analyzeFood(imageUri, userProfile); // 統合されたopenai.ts関数を使用
-    
-    // Step 8: 解析結果を保存（この中でステータスが'completed'に更新される）
+    // Step 3: 解析結果を保存
+    const { saveAnalysisResult } = await import('./food-analysis');
     await saveAnalysisResult(
       mealRecord.id, 
       analysisResult, 
       JSON.stringify(analysisResult)
     );
+    
+    // Step 4: プレミアムユーザーの場合は美容統計を更新
+    if (isPremium && !userId.startsWith('guest_')) {
+      try {
+        const BeautyStatsService = await import('./beauty-stats-service');
+        await BeautyStatsService.default.updateDailyStats(userId, analysisResult);
+        console.log('美容統計更新完了:', mealRecord.id);
+      } catch (statsError) {
+        console.error('美容統計更新エラー:', statsError);
+        // 美容統計の更新失敗は保存フロー全体を失敗させない
+      }
+    }
+    
+    console.log('食事履歴保存完了:', mealRecord.id);
+    return mealRecord;
+    
+  } catch (error) {
+    console.error('食事履歴保存失敗:', error);
+    throw error;
+  }
+};
+
+// 完全な食事解析フロー（後方互換性のため残す）
+export const processMealAnalysis = async (
+  imageUri: string,
+  mealTiming: 'breakfast' | 'lunch' | 'dinner' | 'snack',
+  userId: string,
+  userProfile: UserProfile,
+  isPremium: boolean = false
+): Promise<{
+  mealRecord: MealRecord;
+  analysisResult: any;
+}> => {
+  try {
+    console.log('食事解析フロー開始（新しいAPI使用）:', { userId, mealTiming });
+    
+    // Step 1: AI解析のみ実行
+    const analysisResult = await analyzeMealImage(imageUri, userProfile, isPremium);
+    
+    // Step 2: 履歴に保存
+    const mealRecord = await saveMealToHistory(imageUri, mealTiming, userId, analysisResult, isPremium);
     
     console.log('食事解析フロー完了:', mealRecord.id);
     
@@ -301,12 +511,6 @@ export const processMealAnalysis = async (
     
   } catch (error) {
     console.error('食事解析フロー失敗:', error);
-    
-    // エラー時はステータスを失敗に更新
-    if (mealRecord) {
-      await updateMealRecordStatus(mealRecord.id, 'failed');
-    }
-    
     throw error;
   }
 };
@@ -360,8 +564,21 @@ export const getUserMealRecords = async (
           
           // image_urlがStorageパスの場合のみ署名付きURLを生成
           if (record.image_url && !record.image_url.startsWith('data:')) {
-            const signedUrl = await getSignedImageUrl(record.image_url);
-            processedRecord.signedImageUrl = signedUrl;
+            try {
+              const signedUrl = await getSignedImageUrl(record.image_url);
+              processedRecord.signedImageUrl = signedUrl;
+            } catch (urlError) {
+              console.warn('⚠️ 署名付きURL生成スキップ:', {
+                recordId: record.id,
+                imagePath: record.image_url,
+                error: urlError instanceof Error ? urlError.message : String(urlError)
+              });
+              // 署名付きURL生成に失敗しても処理を続行
+              processedRecord.signedImageUrl = null; // null で画像なしを明示
+            }
+          } else {
+            // Base64データの場合はそのまま使用
+            processedRecord.signedImageUrl = record.image_url;
           }
           
           // データベースの構造から解析結果を構築
@@ -404,13 +621,49 @@ export const getUserMealRecords = async (
               immediateAdvice: processedRecord.analysisResult.immediate_advice.substring(0, 50)
             });
           } else {
-            console.log('解析データが見つかりません:', record.id);
+            // 解析結果がない場合でもデフォルトの解析結果を設定
+            processedRecord.analysisResult = {
+              detected_foods: [],
+              nutrition_analysis: {},
+              beauty_score: {
+                overall: 0, // 解析中を示すため0に設定
+                skin_care: 0,
+                anti_aging: 0,
+                detox: 0,
+                circulation: 0,
+                hair_nails: 0
+              },
+              immediate_advice: '解析中...',
+              next_meal_advice: '解析完了後に表示されます',
+              beauty_benefits: [],
+              confidence_score: 0
+            };
           }
           
           return processedRecord;
         } catch (error) {
           console.warn('レコード処理失敗:', record.id, error);
-          return record;
+          // エラーが発生した場合でもデフォルトの解析結果を設定
+          return {
+            ...record,
+            signedImageUrl: record.image_url,
+            analysisResult: {
+              detected_foods: [],
+              nutrition_analysis: {},
+              beauty_score: {
+                overall: 0,
+                skin_care: 0,
+                anti_aging: 0,
+                detox: 0,
+                circulation: 0,
+                hair_nails: 0
+              },
+              immediate_advice: '解析中...',
+              next_meal_advice: '解析完了後に表示されます',
+              beauty_benefits: [],
+              confidence_score: 0
+            }
+          };
         }
       })
     );
