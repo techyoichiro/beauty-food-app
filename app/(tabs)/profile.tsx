@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star, Code } from 'lucide-react-native';
+import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star, Code, Clock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import PremiumModal from '@/components/PremiumModal';
 import { UserProfileService, BEAUTY_CATEGORIES, BEAUTY_LEVELS, ExtendedUserProfile } from '../../lib/meal-service';
@@ -190,6 +190,26 @@ export default function ProfileScreen() {
         type: 'error',
         text1: 'エラー',
         text2: '通知設定の更新に失敗しました',
+      });
+    }
+  };
+
+  const handleAutoMealTimingToggle = async (enabled: boolean) => {
+    try {
+      if (userProfile) {
+        await UserProfileService.updateAutoMealTiming(enabled);
+        setUserProfile({ ...userProfile, autoMealTiming: enabled });
+        Toast.show({
+          type: 'success',
+          text1: '設定完了',
+          text2: `食事タイミング自動選択を${enabled ? 'ON' : 'OFF'}にしました`,
+        });
+      }
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'エラー',
+        text2: '設定の更新に失敗しました',
       });
     }
   };
@@ -503,6 +523,22 @@ export default function ProfileScreen() {
               onValueChange={handleNotificationToggle}
               trackColor={{ false: '#f3f4f6', true: '#fce7f3' }}
               thumbColor={userProfile.notifications.meal ? '#ec4899' : '#9ca3af'}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <Clock size={20} color="#6b7280" />
+            <View style={styles.settingContent}>
+              <Text style={styles.settingLabel}>食事タイミング自動選択</Text>
+              <Text style={styles.settingDescription}>
+                撮影時刻に基づいて自動で食事タイミングを判定
+              </Text>
+            </View>
+            <Switch
+              value={userProfile.autoMealTiming}
+              onValueChange={handleAutoMealTimingToggle}
+              trackColor={{ false: '#f3f4f6', true: '#fce7f3' }}
+              thumbColor={userProfile.autoMealTiming ? '#ec4899' : '#9ca3af'}
             />
           </View>
 
@@ -832,11 +868,21 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
   },
   settingLabel: {
-    flex: 1,
     fontSize: 16,
     fontFamily: 'NotoSansJP-Medium',
     color: '#1f2937',
     marginLeft: 12,
+    flex: 1,
+  },
+  settingContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  settingDescription: {
+    fontSize: 12,
+    fontFamily: 'NotoSansJP-Regular',
+    color: '#6b7280',
+    marginTop: 2,
   },
   footer: {
     alignItems: 'center',

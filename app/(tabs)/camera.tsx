@@ -9,6 +9,7 @@ import {
   Image,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
@@ -26,11 +27,13 @@ import {
   RotateCcw,
   TestTube,
   CheckCircle,
-  Sparkles
+  Sparkles,
+  Calendar,
+  Clock
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { analyzeMealImage, getTodayMealCount, UserProfileService } from '../../lib/meal-service';
+import { analyzeMealImage, getTodayMealCount, UserProfileService, determineAutoMealTiming } from '../../lib/meal-service';
 
 const mealTimes = [
   { id: 'breakfast', label: '朝食', icon: Sun, color: '#f59e0b' },
@@ -55,6 +58,8 @@ export default function CameraScreen() {
   const [selectedMeal, setSelectedMeal] = useState<string | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isFromAlbum, setIsFromAlbum] = useState(false); // アルバムから選択かどうか
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const cameraRef = useRef<CameraView>(null);
   const { session, isPremium } = useAuth();
   const insets = useSafeAreaInsets();
@@ -99,6 +104,7 @@ export default function CameraScreen() {
         });
         if (photo) {
           setCapturedImage(photo.uri);
+          setIsFromAlbum(false); // カメラ撮影フラグを設定
           setShowConfirmModal(true);
         }
       } catch (error) {
@@ -122,6 +128,7 @@ export default function CameraScreen() {
 
       if (!result.canceled && result.assets[0]) {
         setCapturedImage(result.assets[0].uri);
+        setIsFromAlbum(true); // アルバムから選択フラグを設定
         setShowConfirmModal(true);
       }
     } catch (error) {
@@ -135,14 +142,30 @@ export default function CameraScreen() {
     setShowConfirmModal(true);
   };
 
-  const confirmImage = () => {
+  const confirmImage = async () => {
     setShowConfirmModal(false);
-    setShowMealModal(true);
+    
+    // ユーザープロフィールを取得して自動タイミング設定を確認
+    const userProfile = await UserProfileService.getProfile();
+    
+    if (isFromAlbum) {
+      // アルバムから選択時は必ず手動選択
+      setShowMealModal(true);
+    } else if (userProfile.autoMealTiming) {
+      // カメラ撮影 + 自動タイミング設定ONの場合
+      const autoTiming = determineAutoMealTiming(selectedDate);
+      handleMealSelection(autoTiming);
+    } else {
+      // カメラ撮影 + 自動タイミング設定OFFの場合
+      setShowMealModal(true);
+    }
   };
 
   const retakeImage = () => {
     setCapturedImage(null);
     setShowConfirmModal(false);
+    setIsFromAlbum(false); // フラグをリセット
+    setSelectedDate(new Date()); // 日付をリセット
   };
 
   const handleMealSelection = async (mealType: string) => {
@@ -196,7 +219,9 @@ export default function CameraScreen() {
           mealTiming: mealType,
           analysisResult: JSON.stringify(analysisResult),
           isPremium: isPremium.toString(),
-          saveToHistory: 'false' // 履歴保存フラグ
+          saveToHistory: 'false', // 履歴保存フラグ
+          isFromAlbum: isFromAlbum.toString(), // アルバム選択フラグ
+          selectedDateTime: isFromAlbum ? selectedDate.toISOString() : undefined, // 選択された日時
         }
       });
 
@@ -226,6 +251,8 @@ export default function CameraScreen() {
       setSelectedMeal(null);
     }
   };
+
+
 
   return (
     <View style={styles.container}>
@@ -322,13 +349,125 @@ export default function CameraScreen() {
         onRequestClose={() => setShowMealModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, isFromAlbum && styles.expandedModalContent]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>食事のタイミングを選択</Text>
+              <Text style={styles.modalTitle}>
+                {isFromAlbum ? '食事の詳細を設定' : '食事のタイミングを選択'}
+              </Text>
               <TouchableOpacity onPress={() => setShowMealModal(false)}>
                 <X size={24} color="#6b7280" />
               </TouchableOpacity>
             </View>
+            
+            {isFromAlbum && (
+              <ScrollView style={styles.dateTimeSection}>
+                <Text style={styles.sectionTitle}>日付・時刻</Text>
+                
+                <TouchableOpacity 
+                  style={styles.dateTimeButton}
+                  onPress={() => {
+                    // より柔軟な日付選択
+                    Alert.alert(
+                      '日付を選択',
+                      '食事を食べた日付を選択してください',
+                      [
+                        { text: '7日前', onPress: () => {
+                          const date = new Date();
+                          date.setDate(date.getDate() - 7);
+                          setSelectedDate(date);
+                        }},
+                        { text: '3日前', onPress: () => {
+                          const date = new Date();
+                          date.setDate(date.getDate() - 3);
+                          setSelectedDate(date);
+                        }},
+                        { text: '一昨日', onPress: () => {
+                          const date = new Date();
+                          date.setDate(date.getDate() - 2);
+                          setSelectedDate(date);
+                        }},
+                        { text: '昨日', onPress: () => {
+                          const date = new Date();
+                          date.setDate(date.getDate() - 1);
+                          setSelectedDate(date);
+                        }},
+                        { text: '今日', onPress: () => setSelectedDate(new Date()) },
+                        { text: 'キャンセル', style: 'cancel' }
+                      ]
+                    );
+                  }}
+                >
+                  <Calendar size={20} color="#ec4899" />
+                  <Text style={styles.dateTimeText}>
+                    {selectedDate.toLocaleDateString('ja-JP')}
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.dateTimeButton}
+                  onPress={() => {
+                    // より詳細な時刻選択
+                    Alert.alert(
+                      '時刻を選択',
+                      '食事を食べた時刻を選択してください',
+                      [
+                        { text: '朝6時', onPress: () => {
+                          const date = new Date(selectedDate);
+                          date.setHours(6, 0);
+                          setSelectedDate(date);
+                        }},
+                        { text: '朝7時', onPress: () => {
+                          const date = new Date(selectedDate);
+                          date.setHours(7, 0);
+                          setSelectedDate(date);
+                        }},
+                        { text: '朝8時', onPress: () => {
+                          const date = new Date(selectedDate);
+                          date.setHours(8, 0);
+                          setSelectedDate(date);
+                        }},
+                        { text: '昼12時', onPress: () => {
+                          const date = new Date(selectedDate);
+                          date.setHours(12, 0);
+                          setSelectedDate(date);
+                        }},
+                        { text: '昼13時', onPress: () => {
+                          const date = new Date(selectedDate);
+                          date.setHours(13, 0);
+                          setSelectedDate(date);
+                        }},
+                        { text: '夕18時', onPress: () => {
+                          const date = new Date(selectedDate);
+                          date.setHours(18, 0);
+                          setSelectedDate(date);
+                        }},
+                        { text: '夜19時', onPress: () => {
+                          const date = new Date(selectedDate);
+                          date.setHours(19, 0);
+                          setSelectedDate(date);
+                        }},
+                        { text: '夜20時', onPress: () => {
+                          const date = new Date(selectedDate);
+                          date.setHours(20, 0);
+                          setSelectedDate(date);
+                        }},
+                        { text: 'キャンセル', style: 'cancel' }
+                      ]
+                    );
+                  }}
+                >
+                  <Clock size={20} color="#ec4899" />
+                  <Text style={styles.dateTimeText}>
+                    {selectedDate.toLocaleTimeString('ja-JP', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </Text>
+                </TouchableOpacity>
+                
+                <Text style={styles.sectionTitle}>食事タイミング</Text>
+              </ScrollView>
+            )}
             
             <View style={styles.mealOptions}>
               {mealTimes.map((meal) => {
@@ -368,6 +507,8 @@ export default function CameraScreen() {
           </View>
         </View>
       </Modal>
+
+
     </View>
   );
 }
@@ -591,6 +732,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 40,
+    maxHeight: '50%',
+  },
+  expandedModalContent: {
+    maxHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -602,6 +747,33 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'NotoSansJP-Bold',
     color: '#1f2937',
+  },
+  dateTimeSection: {
+    marginBottom: 20,
+    maxHeight: 200,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-SemiBold',
+    color: '#1f2937',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  dateTimeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  dateTimeText: {
+    fontSize: 16,
+    fontFamily: 'NotoSansJP-Medium',
+    color: '#1f2937',
+    marginLeft: 12,
   },
   mealOptions: {
     flexDirection: 'row',
@@ -673,4 +845,5 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansJP-SemiBold',
     color: 'white',
   },
+
 });

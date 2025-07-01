@@ -221,7 +221,8 @@ export default function HistoryScreen() {
         beautyLevel: 'intermediate',
         weeklyGoalScore: 70,
         dailyMealGoal: 3,
-        notifications: { meal: true, analysis: true, weekly: true }
+        notifications: { meal: true, analysis: true, weekly: true },
+        autoMealTiming: true
       };
       setUserProfile(defaultProfile);
       setMealRecords(generateDummyMealRecords(defaultProfile));

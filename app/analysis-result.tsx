@@ -22,7 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 type AnalysisResult = FoodAnalysisResult;
 
 export default function AnalysisResultScreen() {
-  const { mealRecordId, analysisResult, imageUri, isPremium } = useLocalSearchParams();
+  const { mealRecordId, analysisResult, imageUri, isPremium, isFromAlbum, selectedDateTime } = useLocalSearchParams();
   const { user, isPremium: authIsPremium } = useAuth();
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [currentImageUri, setCurrentImageUri] = useState<string>('');
@@ -239,17 +239,38 @@ export default function AnalysisResultScreen() {
       // ユーザーID取得（認証済みユーザー or ゲスト）
       const userId = user?.id || 'guest_user';
       
-      // 食事タイミングを推定（現在時刻から）
-      const now = new Date();
-      const hour = now.getHours();
+      // 食事タイミングを推定（選択された日時から、またはアルバムの場合は現在時刻から）
+      let mealDate = new Date();
+      if (isFromAlbum === 'true' && selectedDateTime && typeof selectedDateTime === 'string') {
+        mealDate = new Date(selectedDateTime);
+      }
+      
+      const hour = mealDate.getHours();
       let mealTiming: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'snack';
       
       if (hour >= 6 && hour < 10) mealTiming = 'breakfast';
       else if (hour >= 11 && hour < 15) mealTiming = 'lunch';
       else if (hour >= 17 && hour < 21) mealTiming = 'dinner';
       
-      // 食事記録を作成
+      // 食事記録を作成（正しい日時で）
       const mealRecord = await createMealRecord(userId, currentImageUri, mealTiming);
+      
+      // アルバムから選択した場合は記録の日時を更新
+      if (isFromAlbum === 'true' && selectedDateTime && typeof selectedDateTime === 'string' && !userId.startsWith('guest_')) {
+        try {
+          const { supabase } = await import('../lib/supabase');
+          await supabase
+            .from('meal_records')
+            .update({ 
+              taken_at: selectedDateTime,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', mealRecord.id);
+          console.log('食事記録の日時を更新:', selectedDateTime);
+        } catch (updateError) {
+          console.warn('食事記録の日時更新に失敗:', updateError);
+        }
+      }
       
       // 解析結果を保存
       await saveAnalysisResult(mealRecord.id, analysis, JSON.stringify(analysis));

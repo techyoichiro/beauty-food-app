@@ -11,6 +11,7 @@ export interface ExtendedUserProfile extends UserProfile {
     analysis: boolean;
     weekly: boolean;
   };
+  autoMealTiming: boolean; // 食事タイミング自動選択設定
 }
 
 export interface MealRecord {
@@ -712,6 +713,7 @@ const DEFAULT_USER_PROFILE: ExtendedUserProfile = {
     analysis: true,
     weekly: true,
   },
+  autoMealTiming: true, // デフォルトで自動選択を有効に
 };
 
 // ユーザープロフィール管理
@@ -760,6 +762,11 @@ export const UserProfileService = {
   // 通知設定更新
   async updateNotifications(notifications: ExtendedUserProfile['notifications']): Promise<void> {
     await this.saveProfile({ notifications });
+  },
+
+  // 食事タイミング自動選択設定更新
+  async updateAutoMealTiming(autoMealTiming: boolean): Promise<void> {
+    await this.saveProfile({ autoMealTiming });
   },
 };
 
@@ -902,5 +909,21 @@ export const BEAUTY_LEVELS = [
     description: '美容への関心が高く、詳しい情報を求める方' 
   },
 ];
+
+// 食事タイミング自動判定関数
+export const determineAutoMealTiming = (date?: Date): 'breakfast' | 'lunch' | 'dinner' | 'snack' => {
+  const now = date || new Date();
+  const hour = now.getHours();
+  
+  if (hour >= 6 && hour < 10) {
+    return 'breakfast'; // 朝食: 6時-10時
+  } else if (hour >= 11 && hour < 15) {
+    return 'lunch'; // 昼食: 11時-15時
+  } else if (hour >= 17 && hour < 21) {
+    return 'dinner'; // 夕食: 17時-21時
+  } else {
+    return 'snack'; // 間食: その他の時間
+  }
+};
 
 export default { UserProfileService, MealService }; 
