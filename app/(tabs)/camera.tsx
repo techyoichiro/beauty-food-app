@@ -28,8 +28,7 @@ import {
   TestTube,
   CheckCircle,
   Sparkles,
-  Calendar,
-  Clock
+  Calendar
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -216,7 +215,7 @@ export default function CameraScreen() {
         pathname: '/analysis-result' as any,
         params: {
           imageUri: capturedImage,
-          mealTiming: mealType,
+          mealTiming: mealType, // 選択された食事タイミングを正しく渡す
           analysisResult: JSON.stringify(analysisResult),
           isPremium: isPremium.toString(),
           saveToHistory: 'false', // 履歴保存フラグ
@@ -403,67 +402,7 @@ export default function CameraScreen() {
                   </Text>
                 </TouchableOpacity>
                 
-                <TouchableOpacity 
-                  style={styles.dateTimeButton}
-                  onPress={() => {
-                    // より詳細な時刻選択
-                    Alert.alert(
-                      '時刻を選択',
-                      '食事を食べた時刻を選択してください',
-                      [
-                        { text: '朝6時', onPress: () => {
-                          const date = new Date(selectedDate);
-                          date.setHours(6, 0);
-                          setSelectedDate(date);
-                        }},
-                        { text: '朝7時', onPress: () => {
-                          const date = new Date(selectedDate);
-                          date.setHours(7, 0);
-                          setSelectedDate(date);
-                        }},
-                        { text: '朝8時', onPress: () => {
-                          const date = new Date(selectedDate);
-                          date.setHours(8, 0);
-                          setSelectedDate(date);
-                        }},
-                        { text: '昼12時', onPress: () => {
-                          const date = new Date(selectedDate);
-                          date.setHours(12, 0);
-                          setSelectedDate(date);
-                        }},
-                        { text: '昼13時', onPress: () => {
-                          const date = new Date(selectedDate);
-                          date.setHours(13, 0);
-                          setSelectedDate(date);
-                        }},
-                        { text: '夕18時', onPress: () => {
-                          const date = new Date(selectedDate);
-                          date.setHours(18, 0);
-                          setSelectedDate(date);
-                        }},
-                        { text: '夜19時', onPress: () => {
-                          const date = new Date(selectedDate);
-                          date.setHours(19, 0);
-                          setSelectedDate(date);
-                        }},
-                        { text: '夜20時', onPress: () => {
-                          const date = new Date(selectedDate);
-                          date.setHours(20, 0);
-                          setSelectedDate(date);
-                        }},
-                        { text: 'キャンセル', style: 'cancel' }
-                      ]
-                    );
-                  }}
-                >
-                  <Clock size={20} color="#ec4899" />
-                  <Text style={styles.dateTimeText}>
-                    {selectedDate.toLocaleTimeString('ja-JP', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </Text>
-                </TouchableOpacity>
+
                 
                 <Text style={styles.sectionTitle}>食事タイミング</Text>
               </ScrollView>

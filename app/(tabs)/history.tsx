@@ -283,10 +283,6 @@ export default function HistoryScreen() {
       meals: meals.map(meal => ({
         id: meal.id,
         type: getMealTypeJapanese(meal.meal_timing),
-        time: new Date(meal.taken_at).toLocaleTimeString('ja-JP', {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
         image: meal.signedImageUrl || meal.image_url, // 署名付きURLを優先
         imageUri: meal.signedImageUrl || meal.image_url, // 詳細画面用のURI
         score: meal.analysisResult?.beauty_score?.overall || 0,
@@ -373,7 +369,6 @@ export default function HistoryScreen() {
       <View style={styles.mealInfo}>
         <View style={styles.mealHeader}>
           <Text style={styles.mealType}>{meal.type}</Text>
-          <Text style={styles.mealTime}>{meal.time}</Text>
         </View>
         <View style={styles.scoreContainer}>
           <Text style={styles.scoreLabel}>美容スコア</Text>
@@ -674,11 +669,7 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansJP-SemiBold',
     color: '#1f2937',
   },
-  mealTime: {
-    fontSize: 16,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#374151',
-  },
+
   scoreContainer: {
     flexDirection: 'row',
     alignItems: 'center',

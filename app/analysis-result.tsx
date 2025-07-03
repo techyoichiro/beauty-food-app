@@ -22,7 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 type AnalysisResult = FoodAnalysisResult;
 
 export default function AnalysisResultScreen() {
-  const { mealRecordId, analysisResult, imageUri, isPremium, isFromAlbum, selectedDateTime } = useLocalSearchParams();
+  const { mealRecordId, analysisResult, imageUri, isPremium, isFromAlbum, selectedDateTime, mealTiming } = useLocalSearchParams();
   const { user, isPremium: authIsPremium } = useAuth();
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [currentImageUri, setCurrentImageUri] = useState<string>('');
@@ -239,21 +239,27 @@ export default function AnalysisResultScreen() {
       // ユーザーID取得（認証済みユーザー or ゲスト）
       const userId = user?.id || 'guest_user';
       
-      // 食事タイミングを推定（選択された日時から、またはアルバムの場合は現在時刻から）
-      let mealDate = new Date();
-      if (isFromAlbum === 'true' && selectedDateTime && typeof selectedDateTime === 'string') {
-        mealDate = new Date(selectedDateTime);
+      // 食事タイミングを取得（カメラ画面で選択されたものを使用）
+      let finalMealTiming: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'snack';
+      
+      if (mealTiming && typeof mealTiming === 'string') {
+        // カメラ画面で選択された食事タイミングを使用
+        finalMealTiming = mealTiming as 'breakfast' | 'lunch' | 'dinner' | 'snack';
+      } else {
+        // フォールバック: 選択された日時から推定
+        let mealDate = new Date();
+        if (isFromAlbum === 'true' && selectedDateTime && typeof selectedDateTime === 'string') {
+          mealDate = new Date(selectedDateTime);
+        }
+        
+        const hour = mealDate.getHours();
+        if (hour >= 6 && hour < 10) finalMealTiming = 'breakfast';
+        else if (hour >= 11 && hour < 15) finalMealTiming = 'lunch';
+        else if (hour >= 17 && hour < 21) finalMealTiming = 'dinner';
       }
       
-      const hour = mealDate.getHours();
-      let mealTiming: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'snack';
-      
-      if (hour >= 6 && hour < 10) mealTiming = 'breakfast';
-      else if (hour >= 11 && hour < 15) mealTiming = 'lunch';
-      else if (hour >= 17 && hour < 21) mealTiming = 'dinner';
-      
       // 食事記録を作成（正しい日時で）
-      const mealRecord = await createMealRecord(userId, currentImageUri, mealTiming);
+      const mealRecord = await createMealRecord(userId, currentImageUri, finalMealTiming);
       
       // アルバムから選択した場合は記録の日時を更新
       if (isFromAlbum === 'true' && selectedDateTime && typeof selectedDateTime === 'string' && !userId.startsWith('guest_')) {
