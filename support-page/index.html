@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美活！- AI美容食事管理アプリ</title>
+    <meta name="description" content="美活！は、AI技術を使って食事から美容効果を分析する革新的なアプリです。毎日の食事で理想の美しさを手に入れましょう。">
+    <link rel="icon" type="image/png" href="./favicon.png">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="美活！- AI美容食事管理アプリ">
+    <meta property="og:description" content="AI技術で食事から美容効果を分析。毎日の食事で理想の美しさを手に入れよう。">
+    <meta property="og:image" content="./og-image.png">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="美活！- AI美容食事管理アプリ">
+    <meta name="twitter:description" content="AI技術で食事から美容効果を分析。毎日の食事で理想の美しさを手に入れよう。">
+    <meta name="twitter:image" content="./og-image.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+            line-height: 1.6;
+            color: #2D1B69;
+            background: linear-gradient(135deg, #FFF 0%, #FFB347 50%, #FF6B9D 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* ヘッダー */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #FF6B9D, #FFB347);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .logo-text {
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #FF6B9D, #FFB347);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .contact-btn {
+            background: linear-gradient(135deg, #FF6B9D, #FFB347);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+        }
+        
+        .contact-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
+        }
+        
+        /* メインコンテンツ */
+        main {
+            padding: 60px 0;
+        }
+        
+        .hero {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #2D1B69, #FF6B9D);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero p {
+            font-size: 1.3rem;
+            color: #666;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .app-icon {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 30px;
+            background: linear-gradient(135deg, #FF6B9D, #FFB347);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            box-shadow: 0 10px 30px rgba(255, 107, 157, 0.3);
+        }
+        
+        /* セクション */
+        .section {
+            margin-bottom: 80px;
+        }
+        
+        .section h2 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 50px;
+            color: #2D1B69;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #2D1B69;
+        }
+        
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .how-to-use {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+        }
+        
+        .step {
+            text-align: center;
+        }
+        
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #FF6B9D, #FFB347);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin: 0 auto 20px;
+        }
+        
+        .step h4 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #2D1B69;
+        }
+        
+        .step p {
+            color: #666;
+        }
+        
+        /* モーダル */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            animation: slideUp 0.3s ease;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .modal h3 {
+            color: #2D1B69;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2D1B69;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #FF6B9D;
+        }
+        
+        .form-group textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #FF6B9D, #FFB347);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* フッター */
+        footer {
+            background: rgba(45, 27, 105, 0.9);
+            color: white;
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 80px;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            color: #FFB347;
+        }
+        
+        /* レスポンシブ */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero p {
+                font-size: 1.1rem;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .modal-content {
+                padding: 30px 20px;
+            }
+            
+            .footer-links {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .success-message {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .error-message {
+            background: #f44336;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">✨</div>
+                    <div class="logo-text">美活！</div>
+                </div>
+                <button class="contact-btn" onclick="openContactModal()">
+                    お問い合わせ
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <!-- ヒーローセクション -->
+            <section class="hero">
+                <div class="app-icon">✨</div>
+                <h1>美活！</h1>
+                <p>AI技術で食事から美容効果を分析する革新的なアプリ<br>毎日の食事で理想の美しさを手に入れましょう</p>
+            </section>
+
+            <!-- 美活！とは -->
+            <section class="section">
+                <h2>美活！とは</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">📸</div>
+                        <h3>AI食事解析</h3>
+                        <p>食事の写真を撮るだけで、AI（GPT-4o）が自動で食材を認識し、美容効果を詳細に分析します。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">✨</div>
+                        <h3>美容スコア</h3>
+                        <p>美肌、アンチエイジング、デトックスなど、5つのカテゴリーで美容効果をスコア化してお伝えします。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">💡</div>
+                        <h3>パーソナライズアドバイス</h3>
+                        <p>あなたの美容目標に合わせて、次の食事での改善提案や具体的なアドバイスを提供します。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h3>食事履歴管理</h3>
+                        <p>カレンダー形式で食事履歴を管理し、美容スコアの変化を追跡できます。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔥</div>
+                        <h3>プレミアム解析</h3>
+                        <p>プレミアムプランでは、より高精度なAI解析と詳細な美容レポートをお楽しみいただけます。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🍎</div>
+                        <h3>Apple Sign-In</h3>
+                        <p>プライバシーを重視したApple Sign-Inで、安全にアカウントを作成・管理できます。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 使い方 -->
+            <section class="section">
+                <h2>使い方</h2>
+                <div class="how-to-use">
+                    <div class="steps">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <h4>食事を撮影</h4>
+                            <p>カメラで食事の写真を撮影するか、アルバムから選択します</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <h4>AI解析</h4>
+                            <p>GPT-4oが食材を認識し、栄養素と美容効果を自動で分析します</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <h4>結果確認</h4>
+                            <p>美容スコアと詳細なアドバイスを確認して、次の食事に活かします</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <h4>履歴管理</h4>
+                            <p>食事履歴をカレンダーで管理し、美容への取り組みを継続します</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://seasoned-omelet-fec.notion.site/privacy-policy-22511745eca2818b9201ca2410b49d8e" target="_blank">プライバシーポリシー</a>
+                <a href="https://seasoned-omelet-fec.notion.site/terms-of-service-22511745eca280b5b927d7e10566bd26" target="_blank">利用規約</a>
+            </div>
+            <p>&copy; 2025 Beauty AI Tech. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- お問い合わせモーダル -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeContactModal()">&times;</button>
+            <h3>お問い合わせ</h3>
+            <div id="messageContainer"></div>
+            <form id="contactForm">
+                <div class="form-group">
+                    <label for="category">お問い合わせ種別</label>
+                    <select id="category" name="category" required>
+                        <option value="">選択してください</option>
+                        <option value="bug">不具合・エラー報告</option>
+                        <option value="feature">機能要望・改善提案</option>
+                        <option value="subscription">課金・サブスクリプション</option>
+                        <option value="usage">使い方・操作方法</option>
+                        <option value="account">アカウント・ログイン</option>
+                        <option value="other">その他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">メールアドレス（任意）</label>
+                    <input type="email" id="email" name="email" placeholder="返信が必要な場合はご入力ください">
+                </div>
+                
+                <div class="form-group">
+                    <label for="message">お問い合わせ内容</label>
+                    <textarea id="message" name="message" required placeholder="具体的な状況やご要望をお聞かせください"></textarea>
+                </div>
+                
+                <button type="submit" class="submit-btn">送信する</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // モーダル制御
+        function openContactModal() {
+            document.getElementById('contactModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeContactModal() {
+            document.getElementById('contactModal').classList.remove('show');
+            document.body.style.overflow = 'auto';
+            // フォームリセット
+            document.getElementById('contactForm').reset();
+            document.getElementById('messageContainer').innerHTML = '';
+        }
+
+        // モーダル外クリックで閉じる
+        document.getElementById('contactModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeContactModal();
+            }
+        });
+
+        // ESCキーで閉じる
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeContactModal();
+            }
+        });
+
+        // フォーム送信処理
+        document.getElementById('contactForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.querySelector('.submit-btn');
+            const messageContainer = document.getElementById('messageContainer');
+            
+            // 送信中状態
+            submitBtn.disabled = true;
+            submitBtn.textContent = '送信中...';
+            messageContainer.innerHTML = '';
+            
+            const formData = new FormData(this);
+            const data = {
+                category: formData.get('category'),
+                email: formData.get('email') || '未入力',
+                message: formData.get('message'),
+                source: 'サポートページ',
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent
+            };
+            
+            try {
+                // Slack Webhook URL（プロダクション用の設定）
+                // 注意: 実際のWebhook URLを設定してください
+                const webhookUrl = 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL';
+                
+                const slackMessage = {
+                    text: "🔔 サポートページからお問い合わせがありました",
+                    blocks: [
+                        {
+                            type: "header",
+                            text: {
+                                type: "plain_text",
+                                text: "📝 新しいお問い合わせ（サポートページ）"
+                            }
+                        },
+                        {
+                            type: "section",
+                            fields: [
+                                {
+                                    type: "mrkdwn",
+                                    text: `*種別:* ${getCategoryName(data.category)}`
+                                },
+                                {
+                                    type: "mrkdwn",
+                                    text: `*メール:* ${data.email}`
+                                },
+                                {
+                                    type: "mrkdwn",
+                                    text: `*送信元:* ${data.source}`
+                                },
+                                {
+                                    type: "mrkdwn",
+                                    text: `*日時:* ${new Date(data.timestamp).toLocaleString('ja-JP')}`
+                                }
+                            ]
+                        },
+                        {
+                            type: "section",
+                            text: {
+                                type: "mrkdwn",
+                                text: `*お問い合わせ内容:*\n${data.message}`
+                            }
+                        }
+                    ]
+                };
+                
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(slackMessage)
+                });
+                
+                if (response.ok) {
+                    messageContainer.innerHTML = '<div class="success-message">お問い合わせを受け付けました。ご連絡いただきありがとうございます。</div>';
+                    this.reset();
+                } else {
+                    throw new Error('送信に失敗しました');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                messageContainer.innerHTML = '<div class="error-message">送信に失敗しました。しばらく時間をおいて再度お試しください。</div>';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '送信する';
+            }
+        });
+        
+        function getCategoryName(category) {
+            const categories = {
+                'bug': '不具合・エラー報告',
+                'feature': '機能要望・改善提案',
+                'subscription': '課金・サブスクリプション',
+                'usage': '使い方・操作方法',
+                'account': 'アカウント・ログイン',
+                'other': 'その他'
+            };
+            return categories[category] || category;
+        }
+    </script>
+</body>
+</html> 
