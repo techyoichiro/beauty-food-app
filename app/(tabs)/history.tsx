@@ -9,9 +9,11 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar, TrendingUp, ChartBar as BarChart3, Crown } from 'lucide-react-native';
+import { Calendar, TrendingUp, ChartBar as BarChart3, Crown, ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 
 import { router } from 'expo-router';
 import { FoodAnalysisResult } from '../../lib/food-analysis';
@@ -181,11 +183,85 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { session, isPremium } = useAuth();
+  
+  // カレンダー関連のstate
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [mealDates, setMealDates] = useState<Set<string>>(new Set());
+  const [filteredRecords, setFilteredRecords] = useState<MealRecord[]>([]);
   const isFreePlan = !isPremium;
+
+  // カレンダーヘルパー関数
+  const formatDateKey = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+
+  const isSameDay = (date1: Date, date2: Date): boolean => {
+    return formatDateKey(date1) === formatDateKey(date2);
+  };
+
+  const getCalendarDays = (month: Date): Array<{date: Date | null, isCurrentMonth: boolean, hasMeals: boolean}> => {
+    const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+    const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay()); // 週の最初の日に調整
+
+    const days = [];
+    const current = new Date(startDate);
+
+    // 6週分（42日）のカレンダーを作成
+    for (let i = 0; i < 42; i++) {
+      const isCurrentMonth = current.getMonth() === month.getMonth();
+      const dateKey = formatDateKey(current);
+      const hasMeals = mealDates.has(dateKey);
+      
+      days.push({
+        date: new Date(current),
+        isCurrentMonth,
+        hasMeals
+      });
+      
+      current.setDate(current.getDate() + 1);
+    }
+
+    return days;
+  };
+
+  const filterRecordsByDate = (date: Date) => {
+    const dateKey = formatDateKey(date);
+    const filtered = mealRecords.filter(record => {
+      const recordDate = new Date(record.taken_at);
+      return formatDateKey(recordDate) === dateKey;
+    });
+    setFilteredRecords(filtered);
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setCurrentMonth(prev => {
+      const newMonth = new Date(prev);
+      if (direction === 'prev') {
+        newMonth.setMonth(newMonth.getMonth() - 1);
+      } else {
+        newMonth.setMonth(newMonth.getMonth() + 1);
+      }
+      return newMonth;
+    });
+  };
 
   useEffect(() => {
     loadData();
   }, [session]);
+
+  // 食事記録が変更されたときに食事日付セットを更新
+  useEffect(() => {
+    const dates = new Set<string>();
+    mealRecords.forEach(record => {
+      const dateKey = formatDateKey(new Date(record.taken_at));
+      dates.add(dateKey);
+    });
+    setMealDates(dates);
+  }, [mealRecords]);
 
   const loadData = async () => {
     setLoading(true);
@@ -383,11 +459,141 @@ export default function HistoryScreen() {
     </TouchableOpacity>
   );
 
+  // カレンダーモーダルのレンダリング
+  const renderCalendarModal = () => {
+    const calendarDays = getCalendarDays(currentMonth);
+    const monthName = currentMonth.toLocaleDateString('ja-JP', { 
+      year: 'numeric', 
+      month: 'long' 
+    });
+
+    const renderCalendarDay = ({ item, index }: { item: any, index: number }) => {
+      const isSelected = item.date && isSameDay(item.date, selectedDate);
+      const isToday = item.date && isSameDay(item.date, new Date());
+      
+      return (
+        <TouchableOpacity
+          style={[
+            styles.calendarDay,
+            !item.isCurrentMonth && styles.calendarDayInactive,
+            isSelected && styles.calendarDaySelected,
+            isToday && styles.calendarDayToday,
+          ]}
+          onPress={() => {
+            if (item.date) {
+              setSelectedDate(item.date);
+              filterRecordsByDate(item.date);
+              setShowCalendar(false);
+            }
+          }}
+          disabled={!item.date}
+        >
+          <Text style={[
+            styles.calendarDayText,
+            !item.isCurrentMonth && styles.calendarDayTextInactive,
+            isSelected && styles.calendarDayTextSelected,
+            isToday && styles.calendarDayTextToday,
+          ]}>
+            {item.date ? item.date.getDate() : ''}
+          </Text>
+          {item.hasMeals && (
+            <View style={styles.mealIndicator} />
+          )}
+        </TouchableOpacity>
+      );
+    };
+
+    return (
+      <Modal
+        visible={showCalendar}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCalendar(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.calendarModal}>
+            {/* ヘッダー */}
+            <View style={styles.calendarHeader}>
+              <TouchableOpacity
+                style={styles.monthNavButton}
+                onPress={() => navigateMonth('prev')}
+              >
+                <ChevronLeft size={24} color="#374151" />
+              </TouchableOpacity>
+              
+              <Text style={styles.monthTitle}>{monthName}</Text>
+              
+              <TouchableOpacity
+                style={styles.monthNavButton}
+                onPress={() => navigateMonth('next')}
+              >
+                <ChevronRight size={24} color="#374151" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowCalendar(false)}
+              >
+                <X size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 曜日ヘッダー */}
+            <View style={styles.weekdayHeader}>
+              {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
+                <Text key={index} style={styles.weekdayText}>{day}</Text>
+              ))}
+            </View>
+
+            {/* カレンダーグリッド */}
+            <FlatList
+              data={calendarDays}
+              renderItem={renderCalendarDay}
+              numColumns={7}
+              keyExtractor={(item, index) => index.toString()}
+              style={styles.calendarGrid}
+              scrollEnabled={false}
+            />
+
+            {/* 凡例 */}
+            <View style={styles.calendarLegend}>
+              <View style={styles.legendItem}>
+                <View style={styles.mealIndicator} />
+                <Text style={styles.legendText}>食事記録あり</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={styles.todayIndicator} />
+                <Text style={styles.legendText}>今日</Text>
+              </View>
+            </View>
+
+            {/* 選択した日付の表示 */}
+            <View style={styles.selectedDateInfo}>
+              <Text style={styles.selectedDateText}>
+                選択中: {selectedDate.toLocaleDateString('ja-JP', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </Text>
+              <Text style={styles.selectedDateMealCount}>
+                食事記録: {filteredRecords.length}件
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>食事履歴</Text>
-        <TouchableOpacity style={styles.calendarButton}>
+        <TouchableOpacity 
+          style={styles.calendarButton}
+          onPress={() => setShowCalendar(true)}
+        >
           <Calendar size={20} color="#ec4899" />
         </TouchableOpacity>
       </View>
@@ -426,31 +632,121 @@ export default function HistoryScreen() {
       >
         {selectedTab === 'daily' ? (
           <>
-            {historyData.length > 0 ? (
-              historyData.map((dayData, dayIndex) => (
-                <View key={dayIndex} style={styles.daySection}>
-                  <View style={styles.dayHeader}>
-                    <Text style={styles.dayDate}>{dayData.date}</Text>
-                    <View style={styles.dayScore}>
-                      <Text style={styles.dayScoreLabel}>平均スコア</Text>
-                      <Text style={[
-                        styles.dayScoreValue,
-                        { color: dayData.averageScore >= 80 ? '#10b981' : dayData.averageScore >= 70 ? '#f59e0b' : '#ec4899' }
-                      ]}>
-                        {dayData.averageScore}
-                      </Text>
-                    </View>
-                  </View>
-                  {dayData.meals.map(renderMealCard)}
-                </View>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>食事記録がありません</Text>
-                <Text style={styles.emptyStateSubtitle}>
-                  カメラで食事を撮影して、美容スコアを記録しましょう！
+            {/* 日付フィルタが適用されている場合の表示 */}
+            {!isSameDay(selectedDate, new Date()) && (
+              <View style={styles.filterInfo}>
+                <Text style={styles.filterText}>
+                  📅 {selectedDate.toLocaleDateString('ja-JP', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })} の食事記録
                 </Text>
+                <TouchableOpacity 
+                  style={styles.clearFilterButton}
+                  onPress={() => {
+                    setSelectedDate(new Date());
+                    setFilteredRecords([]);
+                  }}
+                >
+                  <Text style={styles.clearFilterText}>すべて表示</Text>
+                </TouchableOpacity>
               </View>
+            )}
+
+            {/* フィルタされた記録または全記録を表示 */}
+            {(filteredRecords.length > 0 || (!isSameDay(selectedDate, new Date()) && filteredRecords.length === 0)) ? (
+              // 特定の日付が選択されている場合
+              <>
+                {filteredRecords.length > 0 ? (
+                  <View style={styles.daySection}>
+                    <View style={styles.dayHeader}>
+                      <Text style={styles.dayDate}>
+                        {selectedDate.toLocaleDateString('ja-JP', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </Text>
+                      <View style={styles.dayScore}>
+                        <Text style={styles.dayScoreLabel}>平均スコア</Text>
+                        <Text style={[
+                          styles.dayScoreValue,
+                          { color: (() => {
+                            const scores = filteredRecords
+                              .filter(record => record.analysisResult?.beauty_score?.overall)
+                              .map(record => record.analysisResult.beauty_score.overall);
+                            const avgScore = scores.length > 0 
+                              ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+                              : 0;
+                            return avgScore >= 80 ? '#10b981' : avgScore >= 70 ? '#f59e0b' : '#ec4899';
+                          })() }
+                        ]}>
+                          {(() => {
+                            const scores = filteredRecords
+                              .filter(record => record.analysisResult?.beauty_score?.overall)
+                              .map(record => record.analysisResult.beauty_score.overall);
+                            return scores.length > 0 
+                              ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+                              : 0;
+                          })()}
+                        </Text>
+                      </View>
+                    </View>
+                    {filteredRecords.map(record => renderMealCard({
+                      id: record.id,
+                      type: getMealTypeJapanese(record.meal_timing),
+                      image: record.signedImageUrl || record.image_url,
+                      imageUri: record.signedImageUrl || record.image_url,
+                      score: record.analysisResult?.beauty_score?.overall || 0,
+                      advice: record.analysisResult?.immediate_advice || '解析中...',
+                      analysisResult: record.analysisResult
+                    }))}
+                  </View>
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateTitle}>
+                      {selectedDate.toLocaleDateString('ja-JP', { 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })} の食事記録はありません
+                    </Text>
+                    <Text style={styles.emptyStateSubtitle}>
+                      この日は食事を記録していませんでした
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              // 全記録を表示（デフォルト）
+              <>
+                {historyData.length > 0 ? (
+                  historyData.map((dayData, dayIndex) => (
+                    <View key={dayIndex} style={styles.daySection}>
+                      <View style={styles.dayHeader}>
+                        <Text style={styles.dayDate}>{dayData.date}</Text>
+                        <View style={styles.dayScore}>
+                          <Text style={styles.dayScoreLabel}>平均スコア</Text>
+                          <Text style={[
+                            styles.dayScoreValue,
+                            { color: dayData.averageScore >= 80 ? '#10b981' : dayData.averageScore >= 70 ? '#f59e0b' : '#ec4899' }
+                          ]}>
+                            {dayData.averageScore}
+                          </Text>
+                        </View>
+                      </View>
+                      {dayData.meals.map(renderMealCard)}
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateTitle}>食事記録がありません</Text>
+                    <Text style={styles.emptyStateSubtitle}>
+                      カメラで食事を撮影して、美容スコアを記録しましょう！
+                    </Text>
+                  </View>
+                )}
+              </>
             )}
           </>
         ) : (
@@ -546,6 +842,9 @@ export default function HistoryScreen() {
           </>
         )}
       </ScrollView>
+      
+      {/* カレンダーモーダル */}
+      {renderCalendarModal()}
     </SafeAreaView>
   );
 }
@@ -928,6 +1227,174 @@ const styles = StyleSheet.create({
   achievedText: {
     fontSize: 10,
     fontFamily: 'NotoSansJP-Bold',
+    color: 'white',
+  },
+
+  // カレンダー関連スタイル
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarModal: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    margin: 20,
+    maxHeight: '80%',
+    width: '90%',
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  monthNavButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#374151',
+    flex: 1,
+    textAlign: 'center',
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  weekdayHeader: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  weekdayText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 14,
+    fontFamily: 'Poppins-Medium',
+    color: '#6b7280',
+    paddingVertical: 8,
+  },
+  calendarGrid: {
+    marginBottom: 20,
+  },
+  calendarDay: {
+    flex: 1,
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 1,
+    borderRadius: 8,
+    backgroundColor: '#f9fafb',
+    position: 'relative',
+  },
+  calendarDayInactive: {
+    backgroundColor: '#f3f4f6',
+  },
+  calendarDaySelected: {
+    backgroundColor: '#ec4899',
+  },
+  calendarDayToday: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+  },
+  calendarDayText: {
+    fontSize: 14,
+    fontFamily: 'Poppins-Medium',
+    color: '#374151',
+  },
+  calendarDayTextInactive: {
+    color: '#9ca3af',
+  },
+  calendarDayTextSelected: {
+    color: 'white',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  calendarDayTextToday: {
+    color: '#f59e0b',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  mealIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  todayIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#f59e0b',
+    marginRight: 8,
+  },
+  calendarLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendText: {
+    fontSize: 12,
+    fontFamily: 'Poppins-Regular',
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  selectedDateInfo: {
+    backgroundColor: '#f3f4f6',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  selectedDateText: {
+    fontSize: 16,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  selectedDateMealCount: {
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+    color: '#6b7280',
+  },
+  filterInfo: {
+    backgroundColor: '#eff6ff',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginHorizontal: 16,
+  },
+  filterText: {
+    fontSize: 14,
+    fontFamily: 'Poppins-Medium',
+    color: '#1e40af',
+    flex: 1,
+  },
+  clearFilterButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  clearFilterText: {
+    fontSize: 12,
+    fontFamily: 'Poppins-Medium',
     color: 'white',
   },
 });
