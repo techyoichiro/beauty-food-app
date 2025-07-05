@@ -83,22 +83,7 @@
             background-clip: text;
         }
         
-        .contact-btn {
-            background: linear-gradient(135deg, #FF6B9D, #FFB347);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
-        }
-        
-        .contact-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
-        }
+
         
         /* メインコンテンツ */
         main {
@@ -231,112 +216,7 @@
             color: #666;
         }
         
-        /* モーダル */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(5px);
-            z-index: 1000;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .modal.show {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .modal-content {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-            position: relative;
-            animation: slideUp 0.3s ease;
-        }
-        
-        .close-btn {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #666;
-        }
-        
-        .modal h3 {
-            color: #2D1B69;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #2D1B69;
-            font-weight: 500;
-        }
-        
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-        
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #FF6B9D;
-        }
-        
-        .form-group textarea {
-            height: 120px;
-            resize: vertical;
-        }
-        
-        .submit-btn {
-            width: 100%;
-            background: linear-gradient(135deg, #FF6B9D, #FFB347);
-            color: white;
-            border: none;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 107, 157, 0.3);
-        }
-        
-        .submit-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
+
         
         /* フッター */
         footer {
@@ -380,9 +260,7 @@
                 gap: 15px;
             }
             
-            .modal-content {
-                padding: 30px 20px;
-            }
+
             
             .footer-links {
                 flex-direction: column;
@@ -406,23 +284,7 @@
             }
         }
         
-        .success-message {
-            background: #4CAF50;
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        
-        .error-message {
-            background: #f44336;
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
+
     </style>
 </head>
 <body>
@@ -433,9 +295,6 @@
                     <div class="logo-icon">✨</div>
                     <div class="logo-text">美活！</div>
                 </div>
-                <button class="contact-btn" onclick="openContactModal()">
-                    お問い合わせ
-                </button>
             </div>
         </div>
     </header>
@@ -456,7 +315,7 @@
                     <div class="feature-card">
                         <div class="feature-icon">📸</div>
                         <h3>AI食事解析</h3>
-                        <p>食事の写真を撮るだけで、AI（GPT-4o）が自動で食材を認識し、美容効果を詳細に分析します。</p>
+                        <p>食事の写真を撮るだけで、AIが自動で食材を認識し、美容効果を詳細に分析します。</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">✨</div>
@@ -527,181 +386,11 @@
         </div>
     </footer>
 
-    <!-- お問い合わせモーダル -->
-    <div id="contactModal" class="modal">
-        <div class="modal-content">
-            <button class="close-btn" onclick="closeContactModal()">&times;</button>
-            <h3>お問い合わせ</h3>
-            <div id="messageContainer"></div>
-            <form id="contactForm">
-                <div class="form-group">
-                    <label for="category">お問い合わせ種別</label>
-                    <select id="category" name="category" required>
-                        <option value="">選択してください</option>
-                        <option value="bug">不具合・エラー報告</option>
-                        <option value="feature">機能要望・改善提案</option>
-                        <option value="subscription">課金・サブスクリプション</option>
-                        <option value="usage">使い方・操作方法</option>
-                        <option value="account">アカウント・ログイン</option>
-                        <option value="other">その他</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="email">メールアドレス（任意）</label>
-                    <input type="email" id="email" name="email" placeholder="返信が必要な場合はご入力ください">
-                </div>
-                
-                <div class="form-group">
-                    <label for="message">お問い合わせ内容</label>
-                    <textarea id="message" name="message" required placeholder="具体的な状況やご要望をお聞かせください"></textarea>
-                </div>
-                
-                <button type="submit" class="submit-btn">送信する</button>
-            </form>
-        </div>
-    </div>
+
 
     <!-- 設定ファイル読み込み -->
     <script src="./config.js"></script>
     
-    <script>
-        // モーダル制御
-        function openContactModal() {
-            document.getElementById('contactModal').classList.add('show');
-            document.body.style.overflow = 'hidden';
-        }
 
-        function closeContactModal() {
-            document.getElementById('contactModal').classList.remove('show');
-            document.body.style.overflow = 'auto';
-            // フォームリセット
-            document.getElementById('contactForm').reset();
-            document.getElementById('messageContainer').innerHTML = '';
-        }
-
-        // モーダル外クリックで閉じる
-        document.getElementById('contactModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeContactModal();
-            }
-        });
-
-        // ESCキーで閉じる
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeContactModal();
-            }
-        });
-
-        // フォーム送信処理
-        document.getElementById('contactForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const submitBtn = document.querySelector('.submit-btn');
-            const messageContainer = document.getElementById('messageContainer');
-            
-            // 送信中状態
-            submitBtn.disabled = true;
-            submitBtn.textContent = '送信中...';
-            messageContainer.innerHTML = '';
-            
-            const formData = new FormData(this);
-            const data = {
-                category: formData.get('category'),
-                email: formData.get('email') || '未入力',
-                message: formData.get('message'),
-                source: 'サポートページ',
-                timestamp: new Date().toISOString(),
-                userAgent: navigator.userAgent
-            };
-            
-            try {
-                // Slack Webhook URL（設定ファイルから取得）
-                const webhookUrl = window.SUPPORT_PAGE_CONFIG?.SLACK_WEBHOOK_URL;
-                
-                if (!webhookUrl || webhookUrl === 'REPLACE_WITH_ACTUAL_WEBHOOK_URL') {
-                    throw new Error('Webhook URLが設定されていません');
-                }
-                
-                const slackMessage = {
-                    text: "🔔 サポートページからお問い合わせがありました",
-                    blocks: [
-                        {
-                            type: "header",
-                            text: {
-                                type: "plain_text",
-                                text: "📝 新しいお問い合わせ（サポートページ）"
-                            }
-                        },
-                        {
-                            type: "section",
-                            fields: [
-                                {
-                                    type: "mrkdwn",
-                                    text: `*種別:* ${getCategoryName(data.category)}`
-                                },
-                                {
-                                    type: "mrkdwn",
-                                    text: `*メール:* ${data.email}`
-                                },
-                                {
-                                    type: "mrkdwn",
-                                    text: `*送信元:* ${data.source}`
-                                },
-                                {
-                                    type: "mrkdwn",
-                                    text: `*日時:* ${new Date(data.timestamp).toLocaleString('ja-JP')}`
-                                }
-                            ]
-                        },
-                        {
-                            type: "section",
-                            text: {
-                                type: "mrkdwn",
-                                text: `*お問い合わせ内容:*\n${data.message}`
-                            }
-                        }
-                    ]
-                };
-                
-                // Mailto を使用してメールクライアントを開く
-                const subject = encodeURIComponent(`【美活！】お問い合わせ: ${getCategoryName(data.category)}`);
-                const body = encodeURIComponent(`種別: ${getCategoryName(data.category)}\n返信先メールアドレス: ${data.email}\n送信元: ${data.source}\n日時: ${new Date(data.timestamp).toLocaleString('ja-JP')}\n\nお問い合わせ内容:\n${data.message}`);
-                const mailtoUrl = `mailto:support@example.com?subject=${subject}&body=${body}`;
-                
-                // メールクライアントを開く
-                window.location.href = mailtoUrl;
-                
-                // 成功として処理
-                const response = { ok: true };
-                
-                if (response.ok) {
-                    messageContainer.innerHTML = '<div class="success-message">お問い合わせを受け付けました。ご連絡いただきありがとうございます。</div>';
-                    this.reset();
-                } else {
-                    throw new Error('送信に失敗しました');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                messageContainer.innerHTML = '<div class="error-message">送信に失敗しました。しばらく時間をおいて再度お試しください。</div>';
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = '送信する';
-            }
-        });
-        
-        function getCategoryName(category) {
-            const categories = {
-                'bug': '不具合・エラー報告',
-                'feature': '機能要望・改善提案',
-                'subscription': '課金・サブスクリプション',
-                'usage': '使い方・操作方法',
-                'account': 'アカウント・ログイン',
-                'other': 'その他'
-            };
-            return categories[category] || category;
-        }
-    </script>
 </body>
 </html> 
