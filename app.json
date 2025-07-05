@@ -1,20 +1,25 @@
 {
   "expo": {
-    "name": "bolt-expo-nativewind",
-    "slug": "bolt-expo-nativewind",
+    "name": "美活！",
+    "slug": "beautyfood-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "beautyfood",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.bolt-expo-nativewind",
+      "bundleIdentifier": "com.aitech.beautyfood",
       "infoPlist": {
         "NSCameraUsageDescription": "このアプリは料理の写真を撮影するためにカメラを使用します。",
         "NSPhotoLibraryUsageDescription": "このアプリは料理の写真を選択するためにフォトライブラリにアクセスします。",
         "NSMicrophoneUsageDescription": "このアプリはビデオ撮影時にマイクを使用することがあります。"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b06c8db5-b4c5-438b-bf47-7a0a7fe4a9e6"
       }
     },
     "web": {
