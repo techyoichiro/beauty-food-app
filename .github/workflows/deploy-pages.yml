@@ -35,8 +35,10 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           # 設定ファイルにWebhook URLを埋め込み
+          echo "=== デバッグ情報 ==="
           echo "Original config.js:"
           cat support-page/config.js
+          echo ""
           
           # 環境変数が設定されているか確認
           if [ -z "$SLACK_WEBHOOK_URL" ]; then
@@ -44,15 +46,32 @@ jobs:
             exit 1
           fi
           
-          echo "Replacing webhook URL..."
-          sed "s|REPLACE_WITH_ACTUAL_WEBHOOK_URL|$SLACK_WEBHOOK_URL|g" support-page/config.js > support-page/config.js.tmp
-          mv support-page/config.js.tmp support-page/config.js
-          
-          # 確認（URLの最初の30文字のみ表示してセキュリティを保つ）
-          echo "Updated config.js (first 200 chars):"
-          head -c 200 support-page/config.js
+          echo "Webhook URL設定確認:"
+          echo "- URL長: ${#SLACK_WEBHOOK_URL}"
+          echo "- URL開始: ${SLACK_WEBHOOK_URL:0:30}..."
           echo ""
-          echo "Webhook URL length: ${#SLACK_WEBHOOK_URL}"
+          
+          echo "置換実行中..."
+          # より確実な置換を実行
+          sed -i "s|REPLACE_WITH_ACTUAL_WEBHOOK_URL|$SLACK_WEBHOOK_URL|g" support-page/config.js
+          
+          echo "置換後のconfig.js:"
+          cat support-page/config.js
+          echo ""
+          
+          # 置換が成功したか確認
+          if grep -q "REPLACE_WITH_ACTUAL_WEBHOOK_URL" support-page/config.js; then
+            echo "エラー: 置換が完了していません"
+            exit 1
+          else
+            echo "置換成功！"
+          fi
+          
+          # 最終確認
+          echo "=== 最終確認 ==="
+          echo "設定ファイルの内容（最初の300文字）:"
+          head -c 300 support-page/config.js
+          echo ""
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
