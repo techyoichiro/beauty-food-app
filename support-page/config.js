@@ -8,7 +8,10 @@ window.SUPPORT_PAGE_CONFIG = {
     SUPPORT_EMAIL: 'support@example.com',
     
     // デバッグモード（開発時のみtrue）
-    DEBUG: false
+    DEBUG: false,
+    
+    // Repository secretsから取得したWebhook URLを使用
+    UPDATED_AT: '2025-01-27'
 };
 
 // デバッグ用ログ
