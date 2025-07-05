@@ -3,8 +3,6 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 permissions:
   contents: read
@@ -36,7 +34,6 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          # 設定ファイルにWebhook URLを埋め込み
           echo "=== デバッグ情報 ==="
           echo "Original config.js:"
           cat support-page/config.js
@@ -44,36 +41,63 @@ jobs:
           
           # 環境変数が設定されているか確認
           if [ -z "$SLACK_WEBHOOK_URL" ]; then
-            echo "Error: SLACK_WEBHOOK_URL is not set"
+            echo "❌ Error: SLACK_WEBHOOK_URL is not set"
             exit 1
           fi
           
-          echo "Webhook URL設定確認:"
+          echo "✅ Webhook URL設定確認:"
           echo "- URL長: ${#SLACK_WEBHOOK_URL}"
           echo "- URL開始: ${SLACK_WEBHOOK_URL:0:30}..."
           echo ""
           
-          echo "置換実行中..."
-          # より確実な置換を実行
-          sed -i "s|REPLACE_WITH_ACTUAL_WEBHOOK_URL|$SLACK_WEBHOOK_URL|g" support-page/config.js
+          # 一時的なPythonスクリプトを作成
+          echo "🔄 Python置換実行中..."
+          cat > replace_webhook.py << 'EOF'
+          import sys
+          import os
           
-          echo "置換後のconfig.js:"
-          cat support-page/config.js
+          webhook_url = os.environ.get('SLACK_WEBHOOK_URL')
+          if not webhook_url:
+              print("❌ Environment variable not found")
+              sys.exit(1)
+          
+          with open('support-page/config.js', 'r', encoding='utf-8') as f:
+              content = f.read()
+          
+          # 置換実行
+          new_content = content.replace('REPLACE_WITH_ACTUAL_WEBHOOK_URL', webhook_url)
+          
+          with open('support-page/config.js', 'w', encoding='utf-8') as f:
+              f.write(new_content)
+          
+          print('✅ Python置換完了')
+          EOF
+          
+          python3 replace_webhook.py
+          rm replace_webhook.py
+          
+          echo "📝 置換後のconfig.js（最初の5行）:"
+          head -5 support-page/config.js
           echo ""
           
           # 置換が成功したか確認
           if grep -q "REPLACE_WITH_ACTUAL_WEBHOOK_URL" support-page/config.js; then
-            echo "エラー: 置換が完了していません"
+            echo "❌ エラー: 置換が完了していません"
+            grep -n "REPLACE_WITH_ACTUAL_WEBHOOK_URL" support-page/config.js
             exit 1
           else
-            echo "置換成功！"
+            echo "✅ 置換成功！"
           fi
           
           # 最終確認
           echo "=== 最終確認 ==="
-          echo "設定ファイルの内容（最初の300文字）:"
-          head -c 300 support-page/config.js
-          echo ""
+          echo "SLACK_WEBHOOK_URL が含まれているか確認:"
+          if grep -q "https://hooks.slack.com" support-page/config.js; then
+            echo "✅ Webhook URL が正しく設定されています"
+          else
+            echo "❌ Webhook URL が見つかりません"
+            cat support-page/config.js | grep -A 2 -B 2 "SLACK_WEBHOOK_URL"
+          fi
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
