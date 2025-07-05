@@ -665,13 +665,16 @@
                     ]
                 };
                 
-                const response = await fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(slackMessage)
-                });
+                // Mailto を使用してメールクライアントを開く
+                const subject = encodeURIComponent(`【美活！】お問い合わせ: ${getCategoryName(data.category)}`);
+                const body = encodeURIComponent(`種別: ${getCategoryName(data.category)}\n返信先メールアドレス: ${data.email}\n送信元: ${data.source}\n日時: ${new Date(data.timestamp).toLocaleString('ja-JP')}\n\nお問い合わせ内容:\n${data.message}`);
+                const mailtoUrl = `mailto:support@example.com?subject=${subject}&body=${body}`;
+                
+                // メールクライアントを開く
+                window.location.href = mailtoUrl;
+                
+                // 成功として処理
+                const response = { ok: true };
                 
                 if (response.ok) {
                     messageContainer.innerHTML = '<div class="success-message">お問い合わせを受け付けました。ご連絡いただきありがとうございます。</div>';
