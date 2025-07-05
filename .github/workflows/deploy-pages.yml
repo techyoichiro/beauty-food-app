@@ -47,34 +47,39 @@ jobs:
           fi
           
           echo "=== ファイル置換前 ==="
-          head -5 support-page/config.js
+          head -10 support-page/config.js
           echo ""
           
-          # 非常にシンプルな置換方法
+          # より精密な置換処理（設定オブジェクト内の行のみ）
           echo "🔄 置換実行中..."
           cp support-page/config.js support-page/config.js.backup
           
-          # 一行ずつ処理して置換
-          while IFS= read -r line; do
-            if [[ "$line" == *"REPLACE_WITH_ACTUAL_WEBHOOK_URL"* ]]; then
-              echo "    SLACK_WEBHOOK_URL: '$SLACK_WEBHOOK_URL',"
-            else
-              echo "$line"
-            fi
-          done < support-page/config.js.backup > support-page/config.js
+          # sedで特定の行のみ置換
+          sed -i "s|SLACK_WEBHOOK_URL: 'REPLACE_WITH_ACTUAL_WEBHOOK_URL'|SLACK_WEBHOOK_URL: '$SLACK_WEBHOOK_URL'|g" support-page/config.js
           
           echo "=== ファイル置換後 ==="
-          head -5 support-page/config.js
+          head -10 support-page/config.js
           echo ""
           
           # 置換が成功したか確認
-          if grep -q "REPLACE_WITH_ACTUAL_WEBHOOK_URL" support-page/config.js; then
+          if grep -q "SLACK_WEBHOOK_URL: 'REPLACE_WITH_ACTUAL_WEBHOOK_URL'" support-page/config.js; then
             echo "❌ エラー: 置換が完了していません"
             echo "--- 置換対象が見つかった行 ---"
-            grep -n "REPLACE_WITH_ACTUAL_WEBHOOK_URL" support-page/config.js
+            grep -n "SLACK_WEBHOOK_URL: 'REPLACE_WITH_ACTUAL_WEBHOOK_URL'" support-page/config.js
             exit 1
           else
             echo "✅ 置換成功！"
+          fi
+          
+          # 構文チェック
+          echo "=== JavaScriptの構文チェック ==="
+          if node -c support-page/config.js; then
+            echo "✅ JavaScript構文は正常です"
+          else
+            echo "❌ JavaScript構文エラーが発生しました"
+            echo "--- エラーの詳細 ---"
+            node -c support-page/config.js
+            exit 1
           fi
           
           # 最終確認
