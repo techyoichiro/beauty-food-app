@@ -25,7 +25,6 @@ import {
   Image as ImageIcon,
   Check,
   RotateCcw,
-  TestTube,
   CheckCircle,
   Sparkles,
   Calendar
@@ -41,13 +40,7 @@ const mealTimes = [
   { id: 'snack', label: '間食', icon: Coffee, color: '#10b981' },
 ];
 
-// 開発用のテスト画像データ
-const DEV_TEST_IMAGES = [
-  'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop', // ピザ
-  'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=300&fit=crop', // サラダ
-  'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=300&fit=crop', // パンケーキ
-  'https://images.unsplash.com/photo-1563379091339-03246963d96c?w=400&h=300&fit=crop', // 寿司
-];
+
 
 export default function CameraScreen() {
   const [facing, setFacing] = useState<CameraType>('back');
@@ -135,11 +128,7 @@ export default function CameraScreen() {
     }
   };
 
-  const useTestImage = () => {
-    const randomImage = DEV_TEST_IMAGES[Math.floor(Math.random() * DEV_TEST_IMAGES.length)];
-    setCapturedImage(randomImage);
-    setShowConfirmModal(true);
-  };
+
 
   const confirmImage = async () => {
     setShowConfirmModal(false);
@@ -304,10 +293,7 @@ export default function CameraScreen() {
           </TouchableOpacity>
         </View>
         
-        <TouchableOpacity style={styles.testButton} onPress={useTestImage}>
-          <TestTube size={24} color="white" />
-          <Text style={styles.testButtonText}>テスト</Text>
-        </TouchableOpacity>
+        <View style={styles.placeholder} />
       </View>
 
       {/* Image Confirmation Modal */}
@@ -596,16 +582,7 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 48,
   },
-  testButton: {
-    alignItems: 'center',
-    padding: 12,
-  },
-  testButtonText: {
-    fontSize: 12,
-    fontFamily: 'NotoSansJP-Medium',
-    color: 'white',
-    marginTop: 4,
-  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

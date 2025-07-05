@@ -562,6 +562,9 @@
         </div>
     </div>
 
+    <!-- 設定ファイル読み込み -->
+    <script src="./config.js"></script>
+    
     <script>
         // モーダル制御
         function openContactModal() {
@@ -614,9 +617,12 @@
             };
             
             try {
-                // Slack Webhook URL（プロダクション用の設定）
-                // 注意: 実際のWebhook URLを設定してください
-                const webhookUrl = 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL';
+                // Slack Webhook URL（設定ファイルから取得）
+                const webhookUrl = window.SUPPORT_PAGE_CONFIG?.SLACK_WEBHOOK_URL;
+                
+                if (!webhookUrl || webhookUrl === 'REPLACE_WITH_ACTUAL_WEBHOOK_URL') {
+                    throw new Error('Webhook URLが設定されていません');
+                }
                 
                 const slackMessage = {
                     text: "🔔 サポートページからお問い合わせがありました",

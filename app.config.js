@@ -38,6 +38,9 @@ export default {
     },
     extra: {
       slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || process.env.EXPO_PUBLIC_SLACK_WEBHOOK_URL,
+      privacyPolicyUrl: "https://seasoned-omelet-fec.notion.site/privacy-policy-22511745eca2818b9201ca2410b49d8e",
+      termsOfServiceUrl: "https://seasoned-omelet-fec.notion.site/terms-of-service-22511745eca280b5b927d7e10566bd26",
+      supportUrl: "https://techyoichiro.github.io/beauty-food-app/support-page/",
       eas: {
         projectId: "b06c8db5-b4c5-438b-bf47-7a0a7fe4a9e6"
       }

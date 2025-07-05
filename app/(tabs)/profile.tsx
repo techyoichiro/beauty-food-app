@@ -11,14 +11,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star, Code, Clock } from 'lucide-react-native';
+import { Crown, Settings, Bell, Heart, Shield, CircleHelp as HelpCircle, ChevronRight, Sparkles, Target, TrendingUp, Calendar, Star, Clock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import PremiumModal from '@/components/PremiumModal';
 import { UserProfileService, BEAUTY_CATEGORIES, BEAUTY_LEVELS, ExtendedUserProfile } from '../../lib/meal-service';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import BeautyStatsService from '../../lib/beauty-stats-service';
-import { supabase } from '../../lib/supabase';
 
 const beautyCategories = [
   { id: 'skin_care', label: '美肌', selected: true },
@@ -560,91 +559,7 @@ export default function ProfileScreen() {
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
 
-          {/* 開発者メニュー（開発時のみ表示） */}
-          {__DEV__ && (
-            <View style={styles.devSection}>
-              <Text style={[styles.settingLabel, styles.devSectionTitle]}>🔧 開発者メニュー</Text>
-              
-              {/* プレミアム状態切り替え */}
-              <TouchableOpacity 
-                style={[styles.settingItem, styles.devSettingItem]}
-                onPress={async () => {
-                  try {
-                    // 現在の状態を反転
-                    const newPremiumState = !actualIsPremium;
-                    
-                    // user_metadataを更新
-                    const { error } = await supabase.auth.updateUser({
-                      data: { premium: newPremiumState }
-                    });
-                    
-                    if (error) throw error;
-                    
-                    // プレミアム状態を更新
-                    await refreshPremiumStatus();
-                    
-                    Toast.show({
-                      type: 'success',
-                      text1: '開発者設定',
-                      text2: `プレミアム状態を${newPremiumState ? 'ON' : 'OFF'}に変更しました`,
-                    });
-                  } catch (error) {
-                    console.error('プレミアム状態切り替えエラー:', error);
-                    Toast.show({
-                      type: 'error',
-                      text1: 'エラー',
-                      text2: 'プレミアム状態の切り替えに失敗しました',
-                    });
-                  }
-                }}
-              >
-                <Crown size={20} color={actualIsPremium ? "#f59e0b" : "#6b7280"} />
-                <Text style={[styles.settingLabel, styles.devSettingLabel]}>
-                  プレミアム状態切り替え
-                </Text>
-                <View style={styles.devStatusContainer}>
-                  <Text style={[styles.devStatusText, { color: actualIsPremium ? "#f59e0b" : "#6b7280" }]}>
-                    {actualIsPremium ? "ON" : "OFF"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              
-              {/* データリセット */}
-              <TouchableOpacity 
-                style={[styles.settingItem, styles.devSettingItem]}
-                onPress={() => router.push('/dev-reset' as any)}
-              >
-                <Code size={20} color="#f59e0b" />
-                <Text style={[styles.settingLabel, styles.devSettingLabel]}>データリセット</Text>
-                <ChevronRight size={20} color="#f59e0b" />
-              </TouchableOpacity>
-              
-              {/* プレミアム状態強制更新 */}
-              <TouchableOpacity 
-                style={[styles.settingItem, styles.devSettingItem]}
-                onPress={async () => {
-                  try {
-                    await refreshPremiumStatus();
-                    Toast.show({
-                      type: 'success',
-                      text1: '開発者設定',
-                      text2: 'プレミアム状態を強制更新しました',
-                    });
-                  } catch (error) {
-                    Toast.show({
-                      type: 'error',
-                      text1: 'エラー',
-                      text2: 'プレミアム状態の更新に失敗しました',
-                    });
-                  }
-                }}
-              >
-                <TrendingUp size={20} color="#f59e0b" />
-                <Text style={[styles.settingLabel, styles.devSettingLabel]}>プレミアム状態更新</Text>
-                <ChevronRight size={20} color="#f59e0b" />
-              </TouchableOpacity>
-            </View>
-          )}
+
         </View>
 
 
@@ -1018,16 +933,7 @@ const styles = StyleSheet.create({
     color: '#ec4899',
     marginTop: 8,
   },
-  devSettingItem: {
-    backgroundColor: '#fef3c7',
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  devSettingLabel: {
-    color: '#92400e',
-    fontFamily: 'NotoSansJP-SemiBold',
-  },
+
   loadingPlanCard: {
     backgroundColor: '#f3f4f6',
     marginHorizontal: 20,
@@ -1050,36 +956,5 @@ const styles = StyleSheet.create({
     fontFamily: 'NotoSansJP-Regular',
     color: '#6b7280',
   },
-  devSection: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  devSectionTitle: {
-    fontSize: 16,
-    fontFamily: 'NotoSansJP-Bold',
-    color: '#f59e0b',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  devStatusContainer: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  devStatusText: {
-    fontSize: 12,
-    fontFamily: 'NotoSansJP-Bold',
-  },
+
 });
