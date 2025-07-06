@@ -38,7 +38,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // サインイン状態の管理
   const isSignedIn = !!user;
-  const requiresSignIn = !loading && !isSignedIn;
+  
+  // ゲストモードが許可されているかどうかをチェック
+  const allowGuestMode = process.env.EXPO_PUBLIC_ALLOW_GUEST_MODE === 'true';
+  
+  // サインインが必要かどうか（ゲストモード許可時はfalse）
+  const requiresSignIn = !loading && !isSignedIn && !allowGuestMode;
+  
+  console.log('🔐 ゲストモード制御:', {
+    allowGuestMode,
+    isSignedIn,
+    requiresSignIn,
+    loading
+  });
 
   useEffect(() => {
     initializeApp();

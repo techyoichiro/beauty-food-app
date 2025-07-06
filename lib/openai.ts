@@ -418,11 +418,12 @@ export const createFoodAnalysisPrompt = (userProfile: {
 - 重点フォーカス: ${categoryInfo.focusAreas}
 
 【アドバイス生成の重要原則】
-1. **簡単さ＆バラエティの両立**: 30秒〜1分で実践可能＋毎回異なる食材提案（同優先度）
-2. **重複完全回避**: ${previousAdvice.length > 0 ? `前回提案「${previousAdvice.slice(-3).join('、')}」とは完全に異なる食材・方法を提案` : '多様性を最重視した食材提案'}
-3. **家庭常備食材基本**: 冷蔵庫・調味料棚にある確率85%以上の食材を基本とする
-4. **料理適合性**: 現在の料理スタイルに味覚・見た目・文化的に調和する提案のみ
-5. **具体的アクション**: 「パラパラと」「ひとふり」「数滴」「一掴み」など分量も含む明確な指示
+1. **既存食材回避**: 現在の食事に含まれている食材は絶対に推奨しない（最重要）
+2. **簡単さ＆バラエティの両立**: 30秒〜1分で実践可能＋毎回異なる食材提案
+3. **重複完全回避**: ${previousAdvice.length > 0 ? `前回提案「${previousAdvice.slice(-3).join('、')}」とは完全に異なる食材・方法を提案` : '多様性を最重視した食材提案'}
+4. **家庭常備食材基本**: 冷蔵庫・調味料棚にある確率85%以上の食材を基本とする
+5. **料理適合性**: 現在の料理スタイルに味覚・見た目・文化的に調和する提案のみ
+6. **具体的アクション**: 「パラパラと」「ひとふり」「数滴」「一掴み」など分量も含む明確な指示
 
 【次の食事アドバイス特別指示】
 - 必ず「次の食事には○○を使ってみて/取り入れて/試してみて」の形式
@@ -509,7 +510,9 @@ export const createFoodAnalysisPrompt = (userProfile: {
 
 ❌ 避けるべき例: 
 - 今すぐ: 「パプリカを買ってきて」等の入手が必要なもの
+- 今すぐ: 「オートミールを振りかけて」等の現在の食事に含まれている食材の推奨
 - 次の食事: 「アボカドを追加して」等の現在の食事と混同する表現
+- 今すぐ: 検出された食材名と同じ・類似する食材の推奨
 
 重要事項:
 - 有効なJSONオブジェクトのみを返してください
@@ -744,23 +747,66 @@ export const detectFoodInImage = async (imageUri: string): Promise<{
   }
 };
 
-// アドバイス品質チェック機能
+// アドバイス品質チェック機能（強化版）
 export const validateAdviceQuality = (advice: string, detectedFoods: any[], previousAdvice: string[] = []): {
   isValid: boolean;
   issues: string[];
   suggestions: string[];
+  containsExistingFood: boolean;
 } => {
   const issues: string[] = [];
   const suggestions: string[] = [];
+  let containsExistingFood = false;
   
-  // 既存食材の説明になっていないかチェック
-  const existingFoodNames = detectedFoods.map(f => f.name.toLowerCase());
-  const adviceLower = advice.toLowerCase();
+  // 既存食材の厳密チェック（より詳細な検出）
+  const existingFoodNames = detectedFoods.map(f => {
+    // 食材名を正規化（「の」「と」「、」などで区切られた複合食材名も考慮）
+    const name = f.name.toLowerCase()
+      .replace(/[の・と、]/g, ' ')
+      .split(' ')
+      .filter(part => part.length > 1); // 1文字以下は除外
+    return name;
+  }).flat();
   
+  const adviceLower = advice.toLowerCase()
+    .replace(/[！!？?。、]/g, ' '); // 句読点を空白に変換
+  
+  // 既存食材が含まれているかチェック
   for (const foodName of existingFoodNames) {
-    if (adviceLower.includes(foodName)) {
-      issues.push(`既存食材「${foodName}」の説明になっている`);
-      suggestions.push('新しい食材の追加を提案してください');
+    if (foodName.length > 1 && adviceLower.includes(foodName)) {
+      issues.push(`既存食材「${foodName}」を推奨している`);
+      suggestions.push(`「${foodName}」以外の新しい食材を提案してください`);
+      containsExistingFood = true;
+    }
+  }
+  
+  // 主要食材キーワードの重複チェック（オートミール、フルーツなど）
+  const mainIngredients = ['オートミール', 'フルーツ', 'サラダ', 'チキン', '鮭', 'サバ', 'ご飯', 'パン', 'パスタ', 'うどん', 'そば'];
+  for (const ingredient of mainIngredients) {
+    const lowerIngredient = ingredient.toLowerCase();
+    if (detectedFoods.some(food => food.name.toLowerCase().includes(lowerIngredient)) && 
+        adviceLower.includes(lowerIngredient)) {
+      issues.push(`メイン食材「${ingredient}」の重複推奨`);
+      suggestions.push(`「${ingredient}」以外の補助食材を提案してください`);
+      containsExistingFood = true;
+    }
+  }
+  
+  // 「振りかけて」「追加して」などの動詞が既存食材と組み合わされているかチェック
+  const addActionWords = ['振りかけ', '追加', 'のせ', 'かけ', '混ぜ', 'トッピング'];
+  for (const action of addActionWords) {
+    if (adviceLower.includes(action)) {
+      // この動詞の前後にある食材名をチェック
+      const beforeAction = adviceLower.split(action)[0];
+      const afterAction = adviceLower.split(action)[1] || '';
+      
+      for (const foodName of existingFoodNames) {
+        if (foodName.length > 1 && (beforeAction.includes(foodName) || afterAction.includes(foodName))) {
+          issues.push(`既存食材「${foodName}」を${action}として推奨`);
+          suggestions.push(`別の食材で${action}アドバイスを作成してください`);
+          containsExistingFood = true;
+        }
+      }
     }
   }
   
@@ -772,10 +818,11 @@ export const validateAdviceQuality = (advice: string, detectedFoods: any[], prev
   }
   
   // 重複チェック
-  const duplicates = previousAdvice.filter(prev => 
-    prev.toLowerCase().includes(advice.split('！')[0].toLowerCase()) ||
-    advice.toLowerCase().includes(prev.split('！')[0].toLowerCase())
-  );
+  const duplicates = previousAdvice.filter(prev => {
+    const prevFood = prev.split('！')[0].toLowerCase();
+    const currentFood = advice.split('！')[0].toLowerCase();
+    return prevFood.includes(currentFood) || currentFood.includes(prevFood);
+  });
   
   if (duplicates.length > 0) {
     issues.push('過去のアドバイスと重複している');
@@ -783,7 +830,7 @@ export const validateAdviceQuality = (advice: string, detectedFoods: any[], prev
   }
   
   // 実用性チェック
-  const impracticalWords = ['高級', '特別な', '珍しい', '入手困難'];
+  const impracticalWords = ['高級', '特別な', '珍しい', '入手困難', '特殊', '専門'];
   if (impracticalWords.some(word => advice.includes(word))) {
     issues.push('実用性に欠ける提案');
     suggestions.push('一般的で入手しやすい食材を提案してください');
@@ -792,7 +839,8 @@ export const validateAdviceQuality = (advice: string, detectedFoods: any[], prev
   return {
     isValid: issues.length === 0,
     issues,
-    suggestions
+    suggestions,
+    containsExistingFood
   };
 };
 
@@ -1160,6 +1208,11 @@ export const analyzeFoodImage = async (
       previousAdvice
     );
     
+    console.log('アドバイス品質チェック結果:', {
+      immediate: { isValid: immediateAdviceQuality.isValid, containsExisting: immediateAdviceQuality.containsExistingFood },
+      nextMeal: { isValid: nextAdviceQuality.isValid, containsExisting: nextAdviceQuality.containsExistingFood }
+    });
+    
     // 信頼性評価
     const confidenceEvaluation = evaluateNutritionConfidence(result.detected_foods);
     
@@ -1187,9 +1240,25 @@ export const analyzeFoodImage = async (
       );
     }
     
-    // 今すぐアドバイスの改善（重複が多い場合）
+    // 今すぐアドバイスの改善（既存食材チェック＋重複チェック）
     let improvedImmediateAdvice = result.immediate_advice;
-    if (adviceHistory.immediate.length > 3) {
+    
+    // 既存食材を推奨している場合は必ず改善
+    if (immediateAdviceQuality.containsExistingFood) {
+      console.log('今すぐアドバイスに既存食材検出、改善中...');
+      const deficientNutrients = result.deficient_nutrients || ['vitamin_c'];
+      const primaryNutrient = deficientNutrients[0] as keyof typeof IMMEDIATE_ADVICE_INGREDIENTS;
+      const cuisineType = result.cuisine_type || 'general';
+      
+      improvedImmediateAdvice = getImmediateAdvice(
+        primaryNutrient,
+        cuisineType,
+        [...adviceHistory.immediate, result.immediate_advice], // 元のアドバイスも除外対象に
+        true
+      );
+    }
+    // 重複チェック
+    else if (adviceHistory.immediate.length > 3) {
       const recentImmediate = adviceHistory.immediate.slice(0, 3);
       const hasRecentSimilarity = recentImmediate.some(prev => {
         const prevFood = prev.split('！')[0];

@@ -194,7 +194,11 @@ export default function HistoryScreen() {
 
   // カレンダーヘルパー関数
   const formatDateKey = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    // タイムゾーン対応: 現地時間での日付文字列を生成
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const isSameDay = (date1: Date, date2: Date): boolean => {
@@ -329,8 +333,16 @@ export default function HistoryScreen() {
     );
   }
 
-  // 実際の食事記録データを日付別にグループ化
-  const groupedMealRecords = mealRecords.reduce((groups: { [key: string]: MealRecord[] }, record) => {
+  // 実際の食事記録データを日付別にグループ化（直近1週間のみ）
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  
+  const recentMealRecords = mealRecords.filter(record => {
+    const recordDate = new Date(record.taken_at);
+    return recordDate >= oneWeekAgo;
+  });
+  
+  const groupedMealRecords = recentMealRecords.reduce((groups: { [key: string]: MealRecord[] }, record) => {
     const date = new Date(record.taken_at).toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
@@ -425,39 +437,71 @@ export default function HistoryScreen() {
       imageUri: meal.imageUri || meal.image
     });
     
+    // パラメータのデバッグログ
+    const imageUri = meal.imageUri || meal.image || 'https://images.pexels.com/photos/1640770/pexels-photo-1640770.jpeg?auto=compress&cs=tinysrgb&w=300';
+    
+    console.log('🔗 詳細画面遷移パラメータ:', {
+      mealRecordId: meal.id,
+      hasAnalysisData: !!meal.analysisResult,
+      imageUri: imageUri.substring(0, 50) + '...',
+      analysisDataLength: analysisDataString.length
+    });
+    
     router.push({
       pathname: '/analysis-result',
       params: {
-        mealRecordId: meal.id, // プレフィックスを削除
+        mealRecordId: meal.id,
         analysisData: analysisDataString,
-        imageUri: meal.imageUri || meal.image // signedImageUrlを優先使用
+        imageUri: imageUri
       }
     } as any);
   };
 
-  const renderMealCard = (meal: any) => (
-    <TouchableOpacity 
-      key={meal.id} 
-      style={styles.mealCard}
-      onPress={() => handleMealCardPress(meal)}
-    >
-      <Image source={{ uri: meal.image }} style={styles.mealImage} />
-      <View style={styles.mealInfo}>
-        <View style={styles.mealHeader}>
-          <Text style={styles.mealType}>{meal.type}</Text>
+  const renderMealCard = (meal: any) => {
+    // 画像URIのフォールバック処理
+    const imageUri = meal.image || meal.imageUri || 'https://images.pexels.com/photos/1640770/pexels-photo-1640770.jpeg?auto=compress&cs=tinysrgb&w=300';
+    
+    console.log('🖼️ 食事カード画像URI:', {
+      mealId: meal.id,
+      hasImage: !!meal.image,
+      hasImageUri: !!meal.imageUri,
+      finalUri: imageUri.substring(0, 50) + '...'
+    });
+    
+    return (
+      <TouchableOpacity 
+        key={meal.id} 
+        style={styles.mealCard}
+        onPress={() => handleMealCardPress(meal)}
+      >
+        <Image 
+          source={{ uri: imageUri }} 
+          style={styles.mealImage}
+          onError={(error) => {
+            console.warn('📷 画像読み込みエラー:', {
+              mealId: meal.id,
+              uri: imageUri,
+              error
+            });
+          }}
+        />
+        <View style={styles.mealInfo}>
+          <View style={styles.mealHeader}>
+            <Text style={styles.mealType}>{meal.type}</Text>
+          </View>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreLabel}>美容スコア</Text>
+            <Text style={[
+              styles.score,
+              { color: meal.score >= 80 ? '#10b981' : meal.score >= 70 ? '#f59e0b' : '#ec4899' }
+            ]}>
+              {meal.score || 0}
+            </Text>
+          </View>
         </View>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreLabel}>美容スコア</Text>
-          <Text style={[
-            styles.score,
-            { color: meal.score >= 80 ? '#10b981' : meal.score >= 70 ? '#f59e0b' : '#ec4899' }
-          ]}>
-            {meal.score}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   // カレンダーモーダルのレンダリング
   const renderCalendarModal = () => {
@@ -649,7 +693,7 @@ export default function HistoryScreen() {
                     setFilteredRecords([]);
                   }}
                 >
-                  <Text style={styles.clearFilterText}>すべて表示</Text>
+                  <Text style={styles.clearFilterText}>一覧に戻る</Text>
                 </TouchableOpacity>
               </View>
             )}
