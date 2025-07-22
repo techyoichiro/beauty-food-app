@@ -1,5 +1,4 @@
-# BeautyFood App
-
+# 美活！
 美容効果のある食事を管理するReact Native + Expoアプリです。
 
 ## 機能

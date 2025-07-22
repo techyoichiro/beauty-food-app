@@ -235,7 +235,7 @@ export default function PremiumFeaturesScreen() {
             <View style={styles.cancellationCard}>
               <Text style={styles.cancellationTitle}>いつでも簡単に解約可能</Text>
               <Text style={styles.cancellationText}>
-                iOS設定 {'>'} Apple ID {'>'} サブスクリプション {'>'} BeautyFood App
+                iOS設定 {'>'} Apple ID {'>'} サブスクリプション {'>'} 美活！
                 {'\n\n'}
                 から簡単に解約・管理ができます。
                 {'\n\n'}

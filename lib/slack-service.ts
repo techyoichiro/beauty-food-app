@@ -113,7 +113,7 @@ export const sendAlertToSlack = async (title: string, message: string, level: 'i
         elements: [
           {
             type: "mrkdwn",
-            text: `${new Date().toLocaleString('ja-JP')} | BeautyFood App`
+            text: `${new Date().toLocaleString('ja-JP')} | 美活！`
           }
         ]
       }

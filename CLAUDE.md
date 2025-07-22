@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BeautyFood App is a React Native + Expo application that analyzes food photos using AI to provide beauty-focused nutritional advice. The app features food photo capture, AI-powered analysis with beauty scoring, meal history tracking, and premium features.
+美活！ is a React Native + Expo application that analyzes food photos using AI to provide beauty-focused nutritional advice. The app features food photo capture, AI-powered analysis with beauty scoring, meal history tracking, and premium features.
 
 ## Development Environment & Commands
 

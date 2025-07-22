@@ -47,7 +47,7 @@
 ### 🔥 2. App Store Connect・TestFlight準備 【緊急】
 **期限**: 5日以内（7月8日まで）
 - [ ] **App Store Connect基本設定**
-  - [ ] アプリ作成（BeautyFood App）
+  - [ ] アプリ作成（美活！）
   - [ ] Bundle ID設定確認（com.aitech.beautyfood）
   - [ ] アプリカテゴリ設定（ヘルスケア/フィットネス）
 - [ ] **TestFlight配布準備**

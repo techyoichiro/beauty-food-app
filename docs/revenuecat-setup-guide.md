@@ -5,12 +5,12 @@
 ### アカウント作成・プロジェクト設定
 1. https://app.revenuecat.com にアクセス
 2. 「Sign Up」または既存アカウントでログイン
-3. 新規プロジェクト作成: `BeautyFood App`
+3. 新規プロジェクト作成: `美活！`
 
 ### App設定
 1. **Project Settings** → **Apps** → **Add New App**
 2. 設定項目:
-   - **App Name**: BeautyFood App  
+   - **App Name**: 美活！
    - **Bundle ID**: `com.aitech.beautyfood`
    - **Platform**: iOS
    - **Apple App Store Connect**: 連携設定

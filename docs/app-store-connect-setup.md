@@ -3,7 +3,7 @@
 ## 1. App Store Connect製品ID設定
 
 ### 必要な製品情報
-- **アプリ名**: BeautyFood App
+- **アプリ名**: 美活！
 - **Bundle ID**: com.aitech.beautyfood
 - **価格体系**: 
   - 月額プラン: ¥480/月
@@ -66,7 +66,7 @@
 
 ### App設定
 1. 「Apps」→「Add New App」
-2. **App Name**: BeautyFood App
+2. **App Name**: 美活！
 3. **Bundle ID**: com.aitech.beautyfood
 4. **Platform**: iOS
 

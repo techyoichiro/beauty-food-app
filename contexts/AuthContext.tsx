@@ -19,6 +19,7 @@ interface AuthContextType {
   upgradeToPremium: () => Promise<void>;
   // デバッグ用
   createUserRecord: () => Promise<void>;
+  resetPremiumStatus: () => Promise<void>;
   // RevenueCat関連の新しいメソッド
   getAvailablePlans: () => Promise<PremiumPlan[]>;
   purchasePremium: (plan: PremiumPlan) => Promise<PurchaseResult>;
@@ -447,6 +448,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // デバッグ用：プレミアム状態をリセット
+  const resetPremiumStatus = async () => {
+    if (!user) {
+      throw new Error('ユーザーがログインしていません');
+    }
+    
+    try {
+      console.log('🔧 プレミアム状態リセット開始:', user.id);
+      
+      // 1. users テーブルの is_premium を false に設定
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ is_premium: false })
+        .eq('auth_user_id', user.id);
+      
+      if (updateError) {
+        console.error('❌ users テーブル更新エラー:', updateError);
+        throw updateError;
+      }
+      
+      // 2. Auth user_metadata から premium を削除
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { premium: null }
+      });
+      
+      if (metadataError) {
+        console.error('❌ user_metadata更新エラー:', metadataError);
+        throw metadataError;
+      }
+      
+      // 3. プレミアム状態を再取得
+      await refreshPremiumStatus();
+      
+      console.log('✅ プレミアム状態リセット完了');
+    } catch (error) {
+      console.error('❌ プレミアム状態リセットエラー:', error);
+      throw error;
+    }
+  };
+
   // RevenueCat関連のメソッド実装
   const refreshPremiumStatus = async (): Promise<void> => {
     try {
@@ -539,14 +580,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const fallbackPremiumStatus = fallbackAuthMetadata || fallbackUsersTable;
       
-      if (fallbackPremiumStatus) {
-        setIsPremium(true);
-        console.log('🧪 RevenueCatエラー時、手動プレミアム設定を使用:', {
-          authMetadata: fallbackAuthMetadata,
-          usersTable: fallbackUsersTable,
-          final: fallbackPremiumStatus
-        });
-      }
+      setIsPremium(fallbackPremiumStatus);
+      console.log('🧪 RevenueCatエラー時、手動プレミアム設定を使用:', {
+        authMetadata: fallbackAuthMetadata,
+        usersTable: fallbackUsersTable,
+        final: fallbackPremiumStatus
+      });
     } finally {
       setPremiumLoading(false);
     }
@@ -620,6 +659,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     upgradeToPremium,
     // デバッグ用
     createUserRecord,
+    resetPremiumStatus,
     // RevenueCat関連メソッド
     getAvailablePlans,
     purchasePremium,

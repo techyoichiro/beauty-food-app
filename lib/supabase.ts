@@ -6,7 +6,13 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+  const errorMessage = 'Missing Supabase environment variables. Please check your .env file.';
+  
+  if (__DEV__) {
+    console.warn('⚠️', errorMessage);
+  } else {
+    throw new Error(errorMessage);
+  }
 }
 
 // セキュアストレージの実装
@@ -22,13 +28,17 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: ExpoSecureStoreAdapter,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+export const supabase = createClient(
+  supabaseUrl || 'http://localhost:54321', 
+  supabaseAnonKey || 'dummy-anon-key-for-development', 
+  {
+    auth: {
+      storage: ExpoSecureStoreAdapter,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  }
+);
 
 export default supabase; 

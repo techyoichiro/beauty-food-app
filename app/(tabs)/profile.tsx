@@ -38,7 +38,7 @@ export default function ProfileScreen() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [premiumStats, setPremiumStats] = useState<any>(null);
-  const { session, isPremium, premiumLoading, refreshPremiumStatus } = useAuth();
+  const { session, isPremium, premiumLoading, refreshPremiumStatus, resetPremiumStatus } = useAuth();
   
   // プレミアム状態の複数ソースチェック
   const userMetadataPremium = session?.user?.user_metadata?.premium === true;
@@ -287,6 +287,37 @@ export default function ProfileScreen() {
         text2: '設定の保存に失敗しました',
       });
     }
+  };
+
+  // デバッグ用：プレミアム状態リセット
+  const handleResetPremiumStatus = async () => {
+    Alert.alert(
+      'プレミアム状態リセット',
+      'プレミアム状態をFreeに戻します。\n（デバッグ用機能）',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'リセット',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await resetPremiumStatus();
+              Toast.show({
+                type: 'success',
+                text1: '完了',
+                text2: 'プレミアム状態をリセットしました',
+              });
+            } catch (error) {
+              Toast.show({
+                type: 'error',
+                text1: 'エラー',
+                text2: 'リセットに失敗しました',
+              });
+            }
+          }
+        }
+      ]
+    );
   };
 
 
@@ -559,6 +590,17 @@ export default function ProfileScreen() {
             <ChevronRight size={20} color="#9ca3af" />
           </TouchableOpacity>
 
+          {/* デバッグ用機能 */}
+          {__DEV__ && (
+            <TouchableOpacity 
+              style={[styles.settingItem, styles.debugItem]}
+              onPress={handleResetPremiumStatus}
+            >
+              <Settings size={20} color="#ef4444" />
+              <Text style={[styles.settingLabel, styles.debugLabel]}>プレミアム状態リセット</Text>
+              <Text style={styles.debugBadge}>DEBUG</Text>
+            </TouchableOpacity>
+          )}
 
         </View>
 
@@ -955,6 +997,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'NotoSansJP-Regular',
     color: '#6b7280',
+  },
+
+  // デバッグ用スタイル
+  debugItem: {
+    backgroundColor: '#fef2f2',
+    borderLeftWidth: 3,
+    borderLeftColor: '#ef4444',
+  },
+  debugLabel: {
+    color: '#dc2626',
+  },
+  debugBadge: {
+    fontSize: 10,
+    fontFamily: 'NotoSansJP-Bold',
+    color: '#ef4444',
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
 
 });

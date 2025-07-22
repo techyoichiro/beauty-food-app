@@ -27,7 +27,7 @@ npx eas build:list
 ### アプリ作成
 1. App Store Connect → 「マイApp」
 2. 「新規アプリ」作成:
-   - **名前**: BeautyFood App
+   - **名前**: 美活！
    - **Bundle ID**: com.aitech.beautyfood
    - **言語**: 日本語
    - **カテゴリ**: ヘルスケア/フィットネス
@@ -87,7 +87,7 @@ npx eas build --platform ios --profile production
 ### テスト手順
 1. **iOS設定** → **App Store** → **Sandbox アカウント**
 2. Sandboxアカウントでサインイン
-3. **TestFlightアプリ** → **BeautyFood App**をインストール
+3. **TestFlightアプリ** → **美活！**をインストール
 4. **課金テスト実行**:
    - プレミアムモーダル表示
    - 月額・年額プラン購入テスト

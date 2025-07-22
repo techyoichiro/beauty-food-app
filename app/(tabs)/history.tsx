@@ -371,8 +371,8 @@ export default function HistoryScreen() {
       meals: meals.map(meal => ({
         id: meal.id,
         type: getMealTypeJapanese(meal.meal_timing),
-        image: meal.signedImageUrl || meal.image_url, // 署名付きURLを優先
-        imageUri: meal.signedImageUrl || meal.image_url, // 詳細画面用のURI
+        image: meal.signedImageUrl || meal.image_url || 'https://images.pexels.com/photos/1640770/pexels-photo-1640770.jpeg?auto=compress&cs=tinysrgb&w=300', // 署名付きURLを優先、最後にデフォルト
+        imageUri: meal.signedImageUrl || meal.image_url || 'https://images.pexels.com/photos/1640770/pexels-photo-1640770.jpeg?auto=compress&cs=tinysrgb&w=300', // 詳細画面用のURI
         score: meal.analysisResult?.beauty_score?.overall || 0,
         advice: meal.analysisResult?.immediate_advice || '解析中...',
         analysisResult: meal.analysisResult
@@ -458,7 +458,7 @@ export default function HistoryScreen() {
   };
 
   const renderMealCard = (meal: any) => {
-    // 画像URIのフォールバック処理
+    // 画像URIのフォールバック処理（元画像を優先）
     const imageUri = meal.image || meal.imageUri || 'https://images.pexels.com/photos/1640770/pexels-photo-1640770.jpeg?auto=compress&cs=tinysrgb&w=300';
     
     console.log('🖼️ 食事カード画像URI:', {

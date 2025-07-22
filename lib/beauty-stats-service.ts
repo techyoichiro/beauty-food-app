@@ -229,7 +229,7 @@ export class BeautyStatsService {
       
       const { data: prevWeekStats } = await supabase
         .from('beauty_stats')
-        .select('daily_score')
+        .select('*')
         .eq('user_id', userData.id)
         .gte('date', prevWeekStart.toISOString().split('T')[0])
         .lte('date', prevWeekEnd.toISOString().split('T')[0]);
@@ -550,7 +550,7 @@ export class BeautyStatsService {
     
     // 最高スコアカテゴリーに基づくインサイト
     const maxCategory = Object.entries(categoryScores).reduce((max, [key, value]) => 
-      value > max.value ? { key, value } : max, { key: '', value: 0 }
+      (value as number) > max.value ? { key, value: value as number } : max, { key: '', value: 0 }
     );
     
     if (maxCategory.value >= 85) {

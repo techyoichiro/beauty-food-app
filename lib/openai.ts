@@ -3,13 +3,20 @@ import OpenAI from 'openai';
 // OpenAI APIキー（環境変数から取得）
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 
+// 開発環境では警告のみ、本番環境ではエラーを投げる
 if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your-api-key-here') {
-  throw new Error('Missing OpenAI API key. Please check your .env file.');
+  const errorMessage = 'Missing OpenAI API key. Please check your .env file.';
+  
+  if (__DEV__) {
+    console.warn('⚠️', errorMessage);
+  } else {
+    throw new Error(errorMessage);
+  }
 }
 
 // OpenAIクライアントの初期化
 export const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
+  apiKey: OPENAI_API_KEY || 'dummy-key-for-development',
   dangerouslyAllowBrowser: true, // React Native/Expoで必要
 });
 
@@ -764,7 +771,7 @@ export const validateAdviceQuality = (advice: string, detectedFoods: any[], prev
     const name = f.name.toLowerCase()
       .replace(/[の・と、]/g, ' ')
       .split(' ')
-      .filter(part => part.length > 1); // 1文字以下は除外
+      .filter((part: string) => part.length > 1); // 1文字以下は除外
     return name;
   }).flat();
   

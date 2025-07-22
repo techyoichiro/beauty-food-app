@@ -53,7 +53,8 @@ class RevenueCatService {
       const apiKey = Platform.OS === 'ios' ? REVENUECAT_APPLE_API_KEY : REVENUECAT_GOOGLE_API_KEY;
       
       if (!apiKey) {
-        console.warn(`RevenueCat API key not found for ${Platform.OS}`);
+        console.warn(`RevenueCat API key not found for ${Platform.OS} - using mock mode`);
+        this.initialized = true; // モックモードとして初期化完了扱い
         return;
       }
 
@@ -78,7 +79,13 @@ class RevenueCatService {
       
     } catch (error) {
       console.error('RevenueCat initialization failed:', error);
-      throw error;
+      // 開発環境ではエラーを投げずに警告のみ
+      if (__DEV__) {
+        console.warn('RevenueCat initialization failed, continuing with mock mode');
+        this.initialized = true;
+      } else {
+        throw error;
+      }
     }
   }
 

@@ -1,15 +1,16 @@
 export default {
   expo: {
-    name: "bolt-expo-nativewind",
-    slug: "bolt-expo-nativewind",
+    name: "美活！",
+    slug: "beautyfood-app",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "myapp",
+    scheme: "beautyfood",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+    owner: "m.yoichiro",
     ios: {
-      supportsTablet: true,
+      supportsTablet: false,
       bundleIdentifier: "com.aitech.beautyfood",
       infoPlist: {
         NSCameraUsageDescription: "このアプリは料理の写真を撮影するためにカメラを使用します。",
@@ -42,7 +43,7 @@ export default {
       termsOfServiceUrl: "https://seasoned-omelet-fec.notion.site/terms-of-service-22511745eca280b5b927d7e10566bd26",
       supportUrl: "https://techyoichiro.github.io/beauty-food-app/support-page/",
       eas: {
-        projectId: "b06c8db5-b4c5-438b-bf47-7a0a7fe4a9e6"
+        projectId: "bbacced7-4633-42c7-8143-889465af16d4"
       }
     }
   }
